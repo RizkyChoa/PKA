@@ -1,0 +1,301 @@
+package com.example
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.data.model.TransactionEntity
+import com.example.ui.MainViewModel
+import com.example.ui.components.AppScreen
+import com.example.ui.components.BottomNavBar
+import com.example.ui.components.TopAppBarBorePile
+import com.example.ui.dialogs.AddProjectDialog
+import com.example.ui.dialogs.AddTransactionDialog
+import com.example.ui.dialogs.AddWorkerInvoiceDialog
+import com.example.ui.dialogs.SyncAndBackupDialog
+import com.example.ui.dialogs.VoidTransactionDialog
+import com.example.ui.screens.CashFlowScreen
+import com.example.ui.screens.DashboardScreen
+import com.example.ui.screens.ProjectsScreen
+import com.example.ui.screens.ReportsScreen
+import com.example.ui.screens.TransactionsScreen
+import com.example.ui.screens.WorkerInvoicesScreen
+import com.example.ui.theme.MyApplicationTheme
+
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: MainViewModel by viewModels()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            MyApplicationTheme {
+                BorePileFinanceApp(viewModel = viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun BorePileFinanceApp(viewModel: MainViewModel) {
+    val context = LocalContext.current
+    var currentScreen by remember { mutableStateOf(AppScreen.DASHBOARD) }
+
+    // Dialog States
+    var showAddTransactionDialog by remember { mutableStateOf(false) }
+    var showAddProjectDialog by remember { mutableStateOf(false) }
+    var showAddWorkerInvoiceDialog by remember { mutableStateOf(false) }
+    var showSyncDialog by remember { mutableStateOf(false) }
+    var transactionToVoid by remember { mutableStateOf<TransactionEntity?>(null) }
+
+    // Back button handling: return to dashboard if on sub-screens
+    BackHandler(enabled = currentScreen != AppScreen.DASHBOARD) {
+        currentScreen = AppScreen.DASHBOARD
+    }
+
+    // Reactive State Collections
+    val accounts by viewModel.accounts.collectAsStateWithLifecycle()
+    val allProjects by viewModel.allProjects.collectAsStateWithLifecycle()
+    // STRICT ACTIVE PROJECTS for transaction entry (Completed projects are excluded!)
+    val activeProjects by viewModel.activeProjects.collectAsStateWithLifecycle()
+    val allTransactions by viewModel.allTransactions.collectAsStateWithLifecycle()
+    val categories by viewModel.categories.collectAsStateWithLifecycle()
+    val globalSummary by viewModel.globalSummary.collectAsStateWithLifecycle()
+    val projectSummaries by viewModel.projectSummaries.collectAsStateWithLifecycle()
+    val dailySummaries by viewModel.dailySummaries.collectAsStateWithLifecycle()
+    val receivables by viewModel.receivables.collectAsStateWithLifecycle()
+    val payables by viewModel.payables.collectAsStateWithLifecycle()
+    val workerInvoicesWithDetails by viewModel.workerInvoicesWithDetails.collectAsStateWithLifecycle()
+    val selectedDashboardProjectId by viewModel.selectedDashboardProjectId.collectAsStateWithLifecycle()
+    val syncMessage by viewModel.syncStateMessage.collectAsStateWithLifecycle()
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        topBar = {
+            TopAppBarBorePile(
+                onOpenSync = { showSyncDialog = true }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentScreen = currentScreen,
+                onScreenSelected = { currentScreen = it }
+            )
+        }
+    ) { innerPadding ->
+        val screenModifier = Modifier.padding(innerPadding)
+
+        when (currentScreen) {
+            AppScreen.DASHBOARD -> {
+                DashboardScreen(
+                    summary = globalSummary,
+                    accounts = accounts,
+                    projectSummaries = projectSummaries,
+                    selectedProjectId = selectedDashboardProjectId,
+                    recentTransactions = allTransactions.take(5),
+                    onSelectProject = { viewModel.selectDashboardProject(it) },
+                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    onNavigateToProjects = { currentScreen = AppScreen.PROJECTS },
+                    modifier = screenModifier
+                )
+            }
+
+            AppScreen.TRANSACTIONS -> {
+                TransactionsScreen(
+                    transactions = allTransactions,
+                    allProjects = allProjects,
+                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    onRequestVoidTransaction = { transactionToVoid = it },
+                    modifier = screenModifier
+                )
+            }
+
+            AppScreen.CASH_FLOW -> {
+                CashFlowScreen(
+                    summary = globalSummary,
+                    accounts = accounts,
+                    dailySummaries = dailySummaries,
+                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    modifier = screenModifier
+                )
+            }
+
+            AppScreen.PROJECTS -> {
+                ProjectsScreen(
+                    projectSummaries = projectSummaries,
+                    onOpenAddProject = { showAddProjectDialog = true },
+                    onCompleteProject = { viewModel.completeProject(it) },
+                    onReopenProject = { viewModel.reopenProject(it) },
+                    modifier = screenModifier
+                )
+            }
+
+            AppScreen.WORKER_INVOICES -> {
+                WorkerInvoicesScreen(
+                    invoices = workerInvoicesWithDetails,
+                    onOpenAddInvoice = { showAddWorkerInvoiceDialog = true },
+                    onDeleteInvoice = { viewModel.deleteWorkerInvoice(it) },
+                    // Pekerjaan callbacks
+                    onAddJobItem = { invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter ->
+                        viewModel.addWorkerJobItem(invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                    },
+                    onUpdateJobItem = { id, invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter ->
+                        viewModel.updateWorkerJobItem(id, invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                    },
+                    onDeleteJobItem = { jobItemId ->
+                        viewModel.deleteWorkerJobItem(jobItemId)
+                    },
+                    // Kasbon callbacks
+                    onAddLoanItem = { invoiceId, date, description, trxType, amount, deductionDesc, deductionAmount ->
+                        viewModel.addWorkerLoanItem(
+                            invoiceId = invoiceId,
+                            date = date,
+                            description = description,
+                            trxType = trxType,
+                            amount = amount,
+                            deductionDescription = deductionDesc,
+                            deductionAmount = deductionAmount
+                        )
+                    },
+                    onUpdateLoanItem = { id, invoiceId, date, description, trxType, amount, deductionDesc, deductionAmount ->
+                        viewModel.updateWorkerLoanItem(
+                            id = id,
+                            invoiceId = invoiceId,
+                            date = date,
+                            description = description,
+                            trxType = trxType,
+                            amount = amount,
+                            deductionDescription = deductionDesc,
+                            deductionAmount = deductionAmount
+                        )
+                    },
+                    onDeleteLoanItem = { loanId ->
+                        viewModel.deleteWorkerLoanItem(loanId)
+                    },
+                    // Invoice Header callback
+                    onUpdateInvoiceHeader = { updatedInvoice ->
+                        viewModel.updateWorkerInvoice(updatedInvoice)
+                    },
+                    modifier = screenModifier
+                )
+            }
+
+            AppScreen.REPORTS -> {
+                ReportsScreen(
+                    summary = globalSummary,
+                    projectSummaries = projectSummaries,
+                    receivables = receivables,
+                    payables = payables,
+                    modifier = screenModifier
+                )
+            }
+        }
+    }
+
+    // Modal Dialog: Add Transaction (2-Step Wizard)
+    if (showAddTransactionDialog) {
+        AddTransactionDialog(
+            accounts = accounts,
+            activeProjects = activeProjects, // Pass STRICTLY active projects!
+            categories = categories,
+            onDismiss = { showAddTransactionDialog = false },
+            onSaveTransaction = { date, type, amount, desc, method, sourceId, destId, catId, classification, projId, costGrp ->
+                viewModel.createTransaction(
+                    date = date,
+                    type = type,
+                    amount = amount,
+                    description = desc,
+                    paymentMethod = method,
+                    sourceAccountId = sourceId,
+                    destinationAccountId = destId,
+                    categoryId = catId,
+                    classification = classification,
+                    projectId = projId,
+                    costGroup = costGrp
+                )
+            }
+        )
+    }
+
+    // Modal Dialog: Add Project
+    if (showAddProjectDialog) {
+        AddProjectDialog(
+            onDismiss = { showAddProjectDialog = false },
+            onSaveProject = { name, client, location, start, target, contract, notes ->
+                viewModel.createProject(
+                    name = name,
+                    client = client,
+                    location = location,
+                    startDate = start,
+                    targetDate = target,
+                    contractAmount = contract,
+                    notes = notes
+                )
+            }
+        )
+    }
+
+    // Modal Dialog: Add Worker Invoice
+    if (showAddWorkerInvoiceDialog) {
+        AddWorkerInvoiceDialog(
+            projects = allProjects,
+            onDismiss = { showAddWorkerInvoiceDialog = false },
+            onSaveInvoice = { projId, projName, leader, date, notes, jobs, loans ->
+                viewModel.createWorkerInvoice(
+                    projectId = projId,
+                    projectName = projName,
+                    workerLeaderName = leader,
+                    date = date,
+                    notes = notes,
+                    jobItems = jobs,
+                    loanItems = loans
+                )
+                showAddWorkerInvoiceDialog = false
+            }
+        )
+    }
+
+    // Modal Dialog: Void Transaction
+    if (transactionToVoid != null) {
+        VoidTransactionDialog(
+            transaction = transactionToVoid!!,
+            onDismiss = { transactionToVoid = null },
+            onConfirmVoid = { reason ->
+                viewModel.voidTransaction(transactionToVoid!!.id, reason)
+                transactionToVoid = null
+            }
+        )
+    }
+
+    // Modal Dialog: Sync and Backup Antar HP
+    if (showSyncDialog) {
+        SyncAndBackupDialog(
+            projectCount = allProjects.size,
+            transactionCount = allTransactions.size,
+            invoiceCount = workerInvoicesWithDetails.size,
+            syncMessage = syncMessage,
+            onDismiss = { showSyncDialog = false },
+            onExportBackup = { callback ->
+                viewModel.exportBackup(context, callback)
+            },
+            onImportBackup = { uri, callback ->
+                viewModel.importBackup(context, uri, callback)
+            },
+            onClearMessage = { viewModel.clearSyncMessage() }
+        )
+    }
+}
