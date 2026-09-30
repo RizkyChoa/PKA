@@ -35,6 +35,15 @@ interface ProjectDao {
     @Update
     suspend fun updateProject(project: ProjectEntity)
 
+    @androidx.room.Delete
+    suspend fun deleteProject(project: ProjectEntity)
+
+    @Query("DELETE FROM projects WHERE id = :id")
+    suspend fun deleteProjectById(id: Long)
+
+    @Query("DELETE FROM projects")
+    suspend fun deleteAllProjects()
+
     @Query("UPDATE projects SET status = :status WHERE id = :id")
     suspend fun updateProjectStatus(id: Long, status: String)
 }

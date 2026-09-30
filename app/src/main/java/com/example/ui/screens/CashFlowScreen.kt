@@ -63,6 +63,7 @@ fun CashFlowScreen(
     accounts: List<AccountEntity>,
     dailySummaries: List<DailyCashSummary>,
     onOpenAddTransaction: () -> Unit,
+    onOpenManageAccounts: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -176,6 +177,18 @@ fun CashFlowScreen(
             }
         } else {
             // Rekening & Buku Kas Tab
+            Button(
+                onClick = onOpenManageAccounts,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Kelola / Tambah Buku Kas & Rekening")
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)

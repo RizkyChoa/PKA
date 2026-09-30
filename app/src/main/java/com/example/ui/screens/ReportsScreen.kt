@@ -107,12 +107,13 @@ fun ReportsScreen(
 
 @Composable
 fun CompanyPnLTab(summary: GlobalFinancialSummary) {
+    val context = LocalContext.current
     val isProfit = summary.netProfit >= 0
     val netMargin = if (summary.totalRevenue > 0) (summary.netProfit / summary.totalRevenue) * 100 else 0.0
 
     LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            // Net Profit Banner
+            // Net Profit Banner + Print Action
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -130,17 +131,41 @@ fun CompanyPnLTab(summary: GlobalFinancialSummary) {
                             style = MaterialTheme.typography.labelMedium,
                             color = if (isProfit) ColorProfit else ColorExpense
                         )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = if (isProfit) ColorProfit else ColorExpense
-                        ) {
-                            Text(
-                                text = String.format(java.util.Locale.US, "Margin: %.1f%%", netMargin),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isProfit) ColorProfit else ColorExpense
+                            ) {
+                                Text(
+                                    text = String.format(java.util.Locale.US, "Margin: %.1f%%", netMargin),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = {
+                                    PrintHelper.printHtml(
+                                        context = context,
+                                        jobName = "LabaRugi-Perusahaan",
+                                        htmlContent = PrintHelper.generateCompanyPnLHtml(summary)
+                                    )
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                ),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Print PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
 
@@ -191,10 +216,37 @@ fun CompanyPnLTab(summary: GlobalFinancialSummary) {
                         color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    PnLRow("Biaya Langsung Lapangan Proyek", summary.totalProjectCost, ColorExpense)
+                    PnLRow("• Material Ready Mix, Besi & Bentonite", summary.totalMaterial, ColorExpense)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "RINCIAN KATEGORI UPAH (TERPISAH):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            PnLRow("1. Upah Mandor & Supervisi Lapangan", summary.totalLaborMandor, ColorExpense, isBold = true)
+                            PnLRow("2. Upah Pekerja / Operator Rig & Tenaga Bor", summary.totalLaborWorker, ColorExpense, isBold = true)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            PnLRow("Subtotal Seluruh Upah Tenaga Kerja", summary.totalLaborMandor + summary.totalLaborWorker, ColorExpense, isBold = true)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    PnLRow("• Mobilisasi & Demobilisasi Rig", summary.totalMobilization, ColorExpense)
+                    PnLRow("• BBM Solar & Pelumas", summary.totalFuel, ColorExpense)
+                    PnLRow("• Sewa Alat, Genset & Casing", summary.totalEquipment, ColorExpense)
+                    PnLRow("• Perawatan & Mata Bor", summary.totalMaintenance, ColorExpense)
+                    PnLRow("• Koordinasi & Lainnya", summary.totalOtherCost, ColorExpense)
                     Spacer(modifier = Modifier.height(8.dp))
                     HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
+                    PnLRow("TOTAL BIAYA HPP PROYEK", summary.totalProjectCost, ColorExpense, isBold = true)
                     val grossProfit = summary.totalRevenue - summary.totalProjectCost
                     PnLRow("LABA KOTOR (GROSS PROFIT)", grossProfit, if (grossProfit >= 0) ColorProfit else ColorExpense, isBold = true)
 
@@ -353,7 +405,8 @@ fun ProjectPnLTab(projectSummaries: List<ProjectFinancialSummary>) {
                         Spacer(modifier = Modifier.height(8.dp))
 
                         PnLRow("• Material Ready Mix & Besi", ps.costBreakdown.material, ColorExpense)
-                        PnLRow("• Upah Operator, Mandor & Kenek", ps.costBreakdown.labor, ColorExpense)
+                        PnLRow("• Upah Mandor & Supervisi", ps.costBreakdown.laborMandor, ColorExpense)
+                        PnLRow("• Upah Pekerja / Tenaga Bor", ps.costBreakdown.laborWorker, ColorExpense)
                         PnLRow("• Mobilisasi & Demobilisasi Rig", ps.costBreakdown.mobilization, ColorExpense)
                         PnLRow("• BBM Solar & Pelumas", ps.costBreakdown.fuel, ColorExpense)
                         PnLRow("• Sewa Alat, Genset & Casing", ps.costBreakdown.equipment, ColorExpense)

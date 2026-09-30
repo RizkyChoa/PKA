@@ -434,13 +434,26 @@ fun WorkerInvoiceCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = if (inv.status == "LUNAS") ColorProfit.copy(alpha = 0.15f) else MaterialTheme.colorScheme.tertiaryContainer
+                            color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = if (inv.workerRole == "MANDOR") "MANDOR" else "PEKERJA",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = if (inv.status == "LUNAS") ColorProfit.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer
                         ) {
                             Text(
                                 text = inv.status,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (inv.status == "LUNAS") ColorProfit else MaterialTheme.colorScheme.onTertiaryContainer,
+                                color = if (inv.status == "LUNAS") ColorProfit else MaterialTheme.colorScheme.onErrorContainer,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -506,7 +519,7 @@ fun WorkerInvoiceCard(
                 Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Mandor / Pekerja: ${inv.workerLeaderName}",
+                    text = "${if (inv.workerRole == "MANDOR") "Mandor Lapangan" else "Tim Pekerja"}: ${inv.workerLeaderName}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

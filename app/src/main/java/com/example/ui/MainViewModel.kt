@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.AppDatabase
 import com.example.data.model.AccountEntity
+import com.example.data.model.BorePileJobItem
 import com.example.data.model.CategoryEntity
 import com.example.data.model.DailyCashSummary
 import com.example.data.model.GlobalFinancialSummary
@@ -105,6 +106,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         var totalPrjCost = 0.0
         var totalOpsCost = 0.0
 
+        var gMaterial = 0.0
+        var gLaborMandor = 0.0
+        var gLaborWorker = 0.0
+        var gMobil = 0.0
+        var gFuel = 0.0
+        var gEquip = 0.0
+        var gMaint = 0.0
+        var gOther = 0.0
+
         for (trx in trxList) {
             when (trx.type) {
                 "MONEY_IN" -> {
@@ -119,6 +129,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // Distinguish Accounting Expenses vs Asset/Debt Repayment/Equity Draw
                     if (trx.classification == "PROJECT") {
                         totalPrjCost += trx.amount
+                        val cg = trx.costGroup.uppercase()
+                        if (cg == "MATERIAL") {
+                            gMaterial += trx.amount
+                        } else if (cg == "LABOR_MANDOR" || cg == "MANDOR" ||
+                            (cg == "LABOR" && (trx.categoryName.contains("mandor", ignoreCase = true) || trx.description.contains("mandor", ignoreCase = true))) ||
+                            trx.categoryName.contains("mandor", ignoreCase = true)
+                        ) {
+                            gLaborMandor += trx.amount
+                        } else if (cg == "LABOR_WORKER" || cg == "PEKERJA" || cg == "LABOR" ||
+                            trx.categoryName.contains("pekerja", ignoreCase = true) ||
+                            trx.description.contains("pekerja", ignoreCase = true)
+                        ) {
+                            gLaborWorker += trx.amount
+                        } else if (cg == "MOBILIZATION") {
+                            gMobil += trx.amount
+                        } else if (cg == "FUEL") {
+                            gFuel += trx.amount
+                        } else if (cg == "EQUIPMENT") {
+                            gEquip += trx.amount
+                        } else if (cg == "MAINTENANCE") {
+                            gMaint += trx.amount
+                        } else {
+                            if (trx.description.contains("mandor", ignoreCase = true)) {
+                                gLaborMandor += trx.amount
+                            } else if (trx.description.contains("pekerja", ignoreCase = true)) {
+                                gLaborWorker += trx.amount
+                            } else {
+                                gOther += trx.amount
+                            }
+                        }
                     } else if (trx.classification == "OPERATIONAL") {
                         totalOpsCost += trx.amount
                     }
@@ -147,7 +187,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             totalReceivableOutstanding = recOutstanding,
             totalPayableOutstanding = payOutstanding,
             activeProjectCount = activeCount,
-            completedProjectCount = compCount
+            completedProjectCount = compCount,
+            totalMaterial = gMaterial,
+            totalLaborMandor = gLaborMandor,
+            totalLaborWorker = gLaborWorker,
+            totalMobilization = gMobil,
+            totalFuel = gFuel,
+            totalEquipment = gEquip,
+            totalMaintenance = gMaint,
+            totalOtherCost = gOther
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), GlobalFinancialSummary())
 
@@ -161,7 +209,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val cashReceived = projectTrx.filter { it.type == "MONEY_IN" }.sumOf { it.amount }
 
             var material = 0.0
-            var labor = 0.0
+            var laborMandor = 0.0
+            var laborWorker = 0.0
             var mobil = 0.0
             var fuel = 0.0
             var equip = 0.0
@@ -169,18 +218,39 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var other = 0.0
 
             for (t in projectTrx.filter { it.type == "MONEY_OUT" }) {
-                when (t.costGroup.uppercase()) {
-                    "MATERIAL" -> material += t.amount
-                    "LABOR" -> labor += t.amount
-                    "MOBILIZATION" -> mobil += t.amount
-                    "FUEL" -> fuel += t.amount
-                    "EQUIPMENT" -> equip += t.amount
-                    "MAINTENANCE" -> maint += t.amount
-                    else -> other += t.amount
+                val cg = t.costGroup.uppercase()
+                if (cg == "MATERIAL") {
+                    material += t.amount
+                } else if (cg == "LABOR_MANDOR" || cg == "MANDOR" ||
+                    (cg == "LABOR" && (t.categoryName.contains("mandor", ignoreCase = true) || t.description.contains("mandor", ignoreCase = true))) ||
+                    t.categoryName.contains("mandor", ignoreCase = true)
+                ) {
+                    laborMandor += t.amount
+                } else if (cg == "LABOR_WORKER" || cg == "PEKERJA" || cg == "LABOR" ||
+                    t.categoryName.contains("pekerja", ignoreCase = true) ||
+                    t.description.contains("pekerja", ignoreCase = true)
+                ) {
+                    laborWorker += t.amount
+                } else if (cg == "MOBILIZATION") {
+                    mobil += t.amount
+                } else if (cg == "FUEL") {
+                    fuel += t.amount
+                } else if (cg == "EQUIPMENT") {
+                    equip += t.amount
+                } else if (cg == "MAINTENANCE") {
+                    maint += t.amount
+                } else {
+                    if (t.description.contains("mandor", ignoreCase = true)) {
+                        laborMandor += t.amount
+                    } else if (t.description.contains("pekerja", ignoreCase = true)) {
+                        laborWorker += t.amount
+                    } else {
+                        other += t.amount
+                    }
                 }
             }
 
-            val totalCost = material + labor + mobil + fuel + equip + maint + other
+            val totalCost = material + laborMandor + laborWorker + mobil + fuel + equip + maint + other
             val grossProfit = cashReceived - totalCost
             val margin = if (cashReceived > 0) (grossProfit / cashReceived) * 100 else 0.0
             val remainingContract = (project.contractAmount - cashReceived).coerceAtLeast(0.0)
@@ -192,7 +262,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 totalCost = totalCost,
                 costBreakdown = ProjectCostBreakdown(
                     material = material,
-                    labor = labor,
+                    laborMandor = laborMandor,
+                    laborWorker = laborWorker,
                     mobilization = mobil,
                     fuel = fuel,
                     equipment = equip,
@@ -229,11 +300,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         startDate: String,
         targetDate: String,
         contractAmount: Double,
-        notes: String
+        notes: String,
+        jobItems: List<BorePileJobItem> = emptyList(),
+        mobiUnits: Int = 0,
+        mobiPricePerUnit: Double = 0.0
     ) {
         viewModelScope.launch {
             val count = allProjects.value.size + 1
             val code = "PRJ-2026-${String.format(java.util.Locale.US, "%03d", count)}"
+            val firstJob = jobItems.firstOrNull()
+            val totalPoints = jobItems.sumOf { it.pointCount }
+            val avgDepth = if (jobItems.isNotEmpty()) jobItems.map { it.depthMeters }.average() else 0.0
+            val avgPrice = if (jobItems.isNotEmpty()) jobItems.map { it.pricePerMeter }.average() else 0.0
+
             repository.insertProject(
                 ProjectEntity(
                     projectCode = code,
@@ -244,9 +323,108 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     targetDate = targetDate,
                     contractAmount = contractAmount,
                     status = "ACTIVE",
-                    notes = notes
+                    notes = notes,
+                    jobName = firstJob?.jobName ?: "",
+                    pointCount = totalPoints,
+                    depthMeters = avgDepth,
+                    pricePerMeter = avgPrice,
+                    mobiUnits = mobiUnits,
+                    mobiPricePerUnit = mobiPricePerUnit,
+                    jobItemsJson = ProjectEntity.serializeJobItems(jobItems)
                 )
             )
+        }
+    }
+
+    fun updateProject(
+        id: Long,
+        name: String,
+        client: String,
+        location: String,
+        startDate: String,
+        targetDate: String,
+        contractAmount: Double,
+        notes: String,
+        jobItems: List<BorePileJobItem> = emptyList(),
+        mobiUnits: Int = 0,
+        mobiPricePerUnit: Double = 0.0
+    ) {
+        viewModelScope.launch {
+            val existing = allProjects.value.find { it.id == id } ?: return@launch
+            val firstJob = jobItems.firstOrNull()
+            val totalPoints = jobItems.sumOf { it.pointCount }
+            val avgDepth = if (jobItems.isNotEmpty()) jobItems.map { it.depthMeters }.average() else 0.0
+            val avgPrice = if (jobItems.isNotEmpty()) jobItems.map { it.pricePerMeter }.average() else 0.0
+
+            repository.updateProject(
+                existing.copy(
+                    name = name,
+                    clientName = client,
+                    location = location,
+                    startDate = startDate,
+                    targetDate = targetDate,
+                    contractAmount = contractAmount,
+                    notes = notes,
+                    jobName = firstJob?.jobName ?: existing.jobName,
+                    pointCount = if (jobItems.isNotEmpty()) totalPoints else existing.pointCount,
+                    depthMeters = if (jobItems.isNotEmpty()) avgDepth else existing.depthMeters,
+                    pricePerMeter = if (jobItems.isNotEmpty()) avgPrice else existing.pricePerMeter,
+                    mobiUnits = mobiUnits,
+                    mobiPricePerUnit = mobiPricePerUnit,
+                    jobItemsJson = if (jobItems.isNotEmpty()) ProjectEntity.serializeJobItems(jobItems) else existing.jobItemsJson
+                )
+            )
+        }
+    }
+
+    fun deleteProject(projectId: Long) {
+        viewModelScope.launch {
+            repository.deleteProject(projectId)
+        }
+    }
+
+    fun createAccount(name: String, type: String, accountNumber: String, initialBalance: Double) {
+        viewModelScope.launch {
+            repository.insertAccount(
+                AccountEntity(
+                    name = name,
+                    type = type,
+                    accountNumber = accountNumber,
+                    initialBalance = initialBalance,
+                    currentBalance = initialBalance,
+                    isActive = true
+                )
+            )
+        }
+    }
+
+    fun updateAccount(account: AccountEntity) {
+        viewModelScope.launch {
+            repository.updateAccount(account)
+        }
+    }
+
+    fun deleteAccount(accountId: Long) {
+        viewModelScope.launch {
+            repository.deleteAccount(accountId)
+        }
+    }
+
+    fun updateTransaction(transaction: TransactionEntity) {
+        viewModelScope.launch {
+            repository.updateTransaction(transaction)
+        }
+    }
+
+    fun deleteTransaction(transactionId: Long) {
+        viewModelScope.launch {
+            repository.deleteTransaction(transactionId)
+        }
+    }
+
+    fun resetAllData() {
+        viewModelScope.launch {
+            repository.clearAllData()
         }
     }
 
@@ -302,6 +480,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         projectId: Long,
         projectName: String,
         workerLeaderName: String,
+        workerRole: String = "PEKERJA",
         date: String,
         notes: String,
         jobItems: List<com.example.data.model.WorkerJobItemEntity>,
@@ -309,12 +488,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             val count = workerInvoicesWithDetails.value.size + 1
-            val invNumber = "INV-WRK-${date.replace("-", "").take(6)}-${String.format(java.util.Locale.US, "%03d", count)}"
+            val prefix = if (workerRole == "MANDOR") "INV-MND" else "INV-WRK"
+            val invNumber = "$prefix-${date.replace("-", "").take(6)}-${String.format(java.util.Locale.US, "%03d", count)}"
             val invoice = com.example.data.model.WorkerInvoiceEntity(
                 invoiceNumber = invNumber,
                 projectId = projectId,
                 projectName = projectName,
                 workerLeaderName = workerLeaderName,
+                workerRole = workerRole,
                 date = date,
                 notes = notes,
                 status = "LUNAS"
@@ -444,20 +625,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateWorkerInvoice(invoice: com.example.data.model.WorkerInvoiceEntity) {
         viewModelScope.launch {
             repository.updateWorkerInvoice(invoice)
-        }
-    }
-
-    fun createAccount(name: String, type: String, accountNumber: String, initialBalance: Double) {
-        viewModelScope.launch {
-            repository.insertAccount(
-                AccountEntity(
-                    name = name,
-                    type = type,
-                    accountNumber = accountNumber,
-                    initialBalance = initialBalance,
-                    currentBalance = initialBalance
-                )
-            )
         }
     }
 

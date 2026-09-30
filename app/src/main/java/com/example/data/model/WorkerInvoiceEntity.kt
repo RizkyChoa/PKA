@@ -10,6 +10,7 @@ data class WorkerInvoiceEntity(
     val projectId: Long,
     val projectName: String,
     val workerLeaderName: String, // Mandor / Nama Pekerja
+    val workerRole: String = "PEKERJA", // "MANDOR" atau "PEKERJA"
     val date: String, // YYYY-MM-DD
     val status: String = "LUNAS", // "PROSES", "LUNAS"
     val notes: String = "",

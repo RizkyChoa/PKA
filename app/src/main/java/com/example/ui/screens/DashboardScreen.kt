@@ -43,6 +43,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -533,7 +534,8 @@ fun DashboardScreen(
 
                         val costItems = listOf(
                             "Material (Beton & Besi)" to ps.costBreakdown.material,
-                            "Upah Operator & Mandor" to ps.costBreakdown.labor,
+                            "Upah Mandor & Supervisi" to ps.costBreakdown.laborMandor,
+                            "Upah Pekerja / Tenaga Bor" to ps.costBreakdown.laborWorker,
                             "Mobilisasi Rig Bore Pile" to ps.costBreakdown.mobilization,
                             "BBM Solar & Pelumas" to ps.costBreakdown.fuel,
                             "Sewa Alat & Genset" to ps.costBreakdown.equipment,
@@ -564,11 +566,22 @@ fun DashboardScreen(
                             }
                         }
                     } else {
-                        Text(
-                            text = "Belum ada proyek yang dipilih.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Belum ada proyek aktif.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedButton(onClick = onNavigateToProjects) {
+                                Text("Tambah Proyek Baru", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
                     }
                 }
             }

@@ -131,7 +131,10 @@ object PrintHelper {
                 </thead>
                 <tbody>
                     <tr><td>Material (Beton Ready Mix &amp; Besi Tulangan)</td><td class="text-right expense">${formatRupiah(ps.costBreakdown.material)}</td></tr>
-                    <tr><td>Upah Tenaga (Operator Rig, Mandor &amp; Kenek Bor)</td><td class="text-right expense">${formatRupiah(ps.costBreakdown.labor)}</td></tr>
+                    <tr style="background:#f1f5f9;"><td colspan="2" style="font-weight:bold; color:#0D2B45; font-size:12px;">RINCIAN KATEGORI UPAH (TERPISAH):</td></tr>
+                    <tr><td style="padding-left:16px;">1. <strong>Upah Mandor &amp; Supervisi Lapangan</strong></td><td class="text-right expense bold">${formatRupiah(ps.costBreakdown.laborMandor)}</td></tr>
+                    <tr><td style="padding-left:16px;">2. <strong>Upah Pekerja / Operator Rig &amp; Tenaga Bor</strong></td><td class="text-right expense bold">${formatRupiah(ps.costBreakdown.laborWorker)}</td></tr>
+                    <tr style="font-style:italic; background:#f8fafc;"><td style="padding-left:16px;">Subtotal Seluruh Upah Tenaga Kerja</td><td class="text-right expense bold">${formatRupiah(ps.costBreakdown.laborTotal)}</td></tr>
                     <tr><td>Mobilisasi &amp; Demobilisasi Rig Bore Pile</td><td class="text-right expense">${formatRupiah(ps.costBreakdown.mobilization)}</td></tr>
                     <tr><td>BBM Solar &amp; Pelumas Alat Berat</td><td class="text-right expense">${formatRupiah(ps.costBreakdown.fuel)}</td></tr>
                     <tr><td>Sewa Alat Tambahan (Genset, Casing Bor &amp; Kompresor)</td><td class="text-right expense">${formatRupiah(ps.costBreakdown.equipment)}</td></tr>
@@ -527,6 +530,125 @@ object PrintHelper {
 
             <div class="footer">
                 Invoice ini sah dan dikeluarkan secara resmi oleh Sistem Aplikasi Manajemen Bore Pile.
+            </div>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    // 5. Print Laba Rugi Perusahaan (Global Company P&L) dengan Pemisahan Upah Mandor vs Pekerja
+    fun generateCompanyPnLHtml(summary: GlobalFinancialSummary): String {
+        val today = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")).format(Date())
+        val isProfit = summary.netProfit >= 0
+        val netMargin = if (summary.totalRevenue > 0) (summary.netProfit / summary.totalRevenue) * 100 else 0.0
+        val grossProfit = summary.totalRevenue - summary.totalProjectCost
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Laba Rugi Perusahaan</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 25px; color: #1e293b; }
+                .header { border-bottom: 3px solid #0D2B45; padding-bottom: 12px; margin-bottom: 20px; }
+                .company-name { font-size: 22px; font-weight: bold; color: #0D2B45; }
+                .report-title { font-size: 16px; font-weight: 600; color: #475569; margin-top: 4px; }
+                table.data { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 13px; }
+                table.data th { background-color: #f1f5f9; padding: 8px 10px; text-align: left; border-bottom: 1px solid #cbd5e1; }
+                table.data td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+                .text-right { text-align: right; }
+                .bold { font-weight: bold; }
+                .profit { color: #15803d; }
+                .expense { color: #dc2626; }
+                .highlight-box { background: ${if (isProfit) "#f0fdf4" else "#fef2f2"}; border: 1px solid ${if (isProfit) "#bbf7d0" else "#fecaca"}; border-radius: 8px; padding: 15px; margin-top: 15px; }
+                .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="company-name">BORE PILE FINANCE MANAGEMENT</div>
+                <div class="report-title">LAPORAN LABA RUGI PERUSAHAAN (COMPANY PROFIT &amp; LOSS)</div>
+                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Dicetak pada: $today</div>
+            </div>
+
+            <div style="font-size: 14px; font-weight: bold; color: #0D2B45; margin-bottom: 8px;">1. PENDAPATAN PROYEK (REVENUE)</div>
+            <table class="data">
+                <tr>
+                    <td>Pendapatan Proyek Bore Pile (DP, Termin &amp; Pelunasan Kontrak)</td>
+                    <td class="text-right bold profit">${formatRupiah(summary.totalRevenue)}</td>
+                </tr>
+                <tr style="background: #f8fafc; font-weight: bold;">
+                    <td>TOTAL PENDAPATAN OPERASIONAL</td>
+                    <td class="text-right profit">${formatRupiah(summary.totalRevenue)}</td>
+                </tr>
+            </table>
+
+            <div style="font-size: 14px; font-weight: bold; color: #0D2B45; margin-top: 15px; margin-bottom: 8px;">2. BIAYA POKOK PROYEK / HPP BORE PILE</div>
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Komponen Biaya Proyek</th>
+                        <th class="text-right">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>• Material (Ready Mix, Besi Tulangan &amp; Bentonite)</td><td class="text-right expense">${formatRupiah(summary.totalMaterial)}</td></tr>
+                    <tr style="background:#f1f5f9;"><td colspan="2" style="font-weight:bold; color:#0D2B45; font-size:12px;">RINCIAN KATEGORI UPAH (TERPISAH):</td></tr>
+                    <tr><td style="padding-left:16px;">1. <strong>Upah Mandor &amp; Supervisi Lapangan</strong></td><td class="text-right expense bold">${formatRupiah(summary.totalLaborMandor)}</td></tr>
+                    <tr><td style="padding-left:16px;">2. <strong>Upah Pekerja / Operator Rig &amp; Tenaga Bor</strong></td><td class="text-right expense bold">${formatRupiah(summary.totalLaborWorker)}</td></tr>
+                    <tr style="font-style:italic; background:#f8fafc;"><td style="padding-left:16px;">Subtotal Seluruh Upah Tenaga Kerja</td><td class="text-right expense bold">${formatRupiah(summary.totalLaborMandor + summary.totalLaborWorker)}</td></tr>
+                    <tr><td>• Mobilisasi &amp; Demobilisasi Rig Bore Pile</td><td class="text-right expense">${formatRupiah(summary.totalMobilization)}</td></tr>
+                    <tr><td>• BBM Solar &amp; Pelumas Alat Berat</td><td class="text-right expense">${formatRupiah(summary.totalFuel)}</td></tr>
+                    <tr><td>• Sewa Alat, Genset &amp; Casing Bor</td><td class="text-right expense">${formatRupiah(summary.totalEquipment)}</td></tr>
+                    <tr><td>• Perawatan &amp; Mata Bor Lapangan</td><td class="text-right expense">${formatRupiah(summary.totalMaintenance)}</td></tr>
+                    <tr><td>• Koordinasi Lapangan &amp; Perizinan</td><td class="text-right expense">${formatRupiah(summary.totalOtherCost)}</td></tr>
+                    <tr style="background:#f8fafc; font-weight:bold;">
+                        <td>TOTAL BIAYA HPP PROYEK</td>
+                        <td class="text-right expense">${formatRupiah(summary.totalProjectCost)}</td>
+                    </tr>
+                    <tr style="background:#f1f5f9; font-weight:bold;">
+                        <td>LABA KOTOR (GROSS PROFIT)</td>
+                        <td class="text-right ${if (grossProfit >= 0) "profit" else "expense"}">${formatRupiah(grossProfit)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div style="font-size: 14px; font-weight: bold; color: #0D2B45; margin-top: 15px; margin-bottom: 8px;">3. BIAYA OPERASIONAL &amp; UMUM</div>
+            <table class="data">
+                <tr>
+                    <td>Beban Operasional Kantor / Workshop / Umum</td>
+                    <td class="text-right expense">${formatRupiah(summary.totalOperationalCost)}</td>
+                </tr>
+                <tr style="background:#f8fafc; font-weight:bold;">
+                    <td>TOTAL BIAYA &amp; BEBAN PERUSAHAAN</td>
+                    <td class="text-right expense">${formatRupiah(summary.totalExpense)}</td>
+                </tr>
+            </table>
+
+            <div class="highlight-box">
+                <table style="width: 100%;">
+                    <tr>
+                        <td>
+                            <div style="font-size: 13px; font-weight: bold; color: ${if (isProfit) "#15803d" else "#dc2626"};">
+                                ${if (isProfit) "LABA BERSIH PERUSAHAAN (NET PROFIT)" else "RUGI BERSIH PERUSAHAAN"}
+                            </div>
+                            <div style="font-size: 22px; font-weight: 800; color: ${if (isProfit) "#15803d" else "#dc2626"};">
+                                ${formatRupiah(summary.netProfit)}
+                            </div>
+                        </td>
+                        <td style="text-align: right; vertical-align: middle;">
+                            <div style="font-size: 13px; color: #475569;">Net Profit Margin:</div>
+                            <div style="font-size: 18px; font-weight: bold; color: ${if (isProfit) "#15803d" else "#dc2626"};">
+                                ${String.format(Locale.US, "%.1f%%", netMargin)}
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="footer">
+                Dokumen ini dicetak otomatis dari Sistem Aplikasi Manajemen Keuangan Bore Pile.
             </div>
         </body>
         </html>

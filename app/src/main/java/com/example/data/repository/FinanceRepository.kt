@@ -35,12 +35,79 @@ class FinanceRepository(private val db: AppDatabase) {
         db.projectDao().insertProject(project)
     }
 
+    suspend fun updateProject(project: ProjectEntity) = withContext(Dispatchers.IO) {
+        db.projectDao().updateProject(project)
+    }
+
+    suspend fun deleteProject(projectId: Long) = withContext(Dispatchers.IO) {
+        db.projectDao().deleteProjectById(projectId)
+    }
+
     suspend fun updateProjectStatus(projectId: Long, newStatus: String) = withContext(Dispatchers.IO) {
         db.projectDao().updateProjectStatus(projectId, newStatus)
     }
 
     suspend fun insertAccount(account: AccountEntity): Long = withContext(Dispatchers.IO) {
         db.accountDao().insertAccount(account)
+    }
+
+    suspend fun updateAccount(account: AccountEntity) = withContext(Dispatchers.IO) {
+        db.accountDao().updateAccount(account)
+    }
+
+    suspend fun deleteAccount(accountId: Long) = withContext(Dispatchers.IO) {
+        db.accountDao().deleteAccountById(accountId)
+    }
+
+    suspend fun updateTransaction(newTrx: TransactionEntity) = withContext(Dispatchers.IO) {
+        val oldTrx = db.transactionDao().getTransactionById(newTrx.id) ?: return@withContext
+        if (oldTrx.status == "VALID") {
+            // Revert old effect
+            when (oldTrx.type) {
+                "MONEY_IN" -> db.accountDao().adjustBalance(oldTrx.sourceAccountId, -oldTrx.amount)
+                "MONEY_OUT" -> db.accountDao().adjustBalance(oldTrx.sourceAccountId, oldTrx.amount)
+                "TRANSFER" -> {
+                    db.accountDao().adjustBalance(oldTrx.sourceAccountId, oldTrx.amount)
+                    oldTrx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -oldTrx.amount) }
+                }
+            }
+        }
+        if (newTrx.status == "VALID") {
+            // Apply new effect
+            when (newTrx.type) {
+                "MONEY_IN" -> db.accountDao().adjustBalance(newTrx.sourceAccountId, newTrx.amount)
+                "MONEY_OUT" -> db.accountDao().adjustBalance(newTrx.sourceAccountId, -newTrx.amount)
+                "TRANSFER" -> {
+                    db.accountDao().adjustBalance(newTrx.sourceAccountId, -newTrx.amount)
+                    newTrx.destinationAccountId?.let { db.accountDao().adjustBalance(it, newTrx.amount) }
+                }
+            }
+        }
+        db.transactionDao().updateTransaction(newTrx)
+    }
+
+    suspend fun deleteTransaction(transactionId: Long) = withContext(Dispatchers.IO) {
+        val trx = db.transactionDao().getTransactionById(transactionId) ?: return@withContext
+        if (trx.status == "VALID") {
+            // Revert effect on account
+            when (trx.type) {
+                "MONEY_IN" -> db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
+                "MONEY_OUT" -> db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+                "TRANSFER" -> {
+                    db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+                    trx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -trx.amount) }
+                }
+            }
+        }
+        db.transactionDao().deleteTransactionById(transactionId)
+    }
+
+    suspend fun clearAllData() = withContext(Dispatchers.IO) {
+        db.projectDao().deleteAllProjects()
+        db.transactionDao().deleteAllTransactions()
+        db.accountDao().deleteAllAccounts()
+        // Fresh default account
+        db.accountDao().insertAccount(AccountEntity(1, "Kas Utama (Tunai)", "CASH", "-", 0.0, 0.0, true))
     }
 
     suspend fun createTransaction(

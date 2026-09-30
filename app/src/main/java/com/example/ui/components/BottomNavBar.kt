@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Assessment
@@ -19,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 enum class AppScreen(val title: String, val icon: ImageVector) {
     DASHBOARD("Dashboard", Icons.Default.Dashboard),
@@ -48,13 +51,16 @@ fun BottomNavBar(
                 icon = {
                     Icon(
                         screen.icon,
-                        contentDescription = screen.title
+                        contentDescription = screen.title,
+                        modifier = Modifier.size(20.dp)
                     )
                 },
                 label = {
                     Text(
-                        screen.title,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        text = screen.title,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(

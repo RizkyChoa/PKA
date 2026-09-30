@@ -21,18 +21,31 @@ data class GlobalFinancialSummary(
     val totalReceivableOutstanding: Double = 0.0,
     val totalPayableOutstanding: Double = 0.0,
     val activeProjectCount: Int = 0,
-    val completedProjectCount: Int = 0
+    val completedProjectCount: Int = 0,
+    // Rincian HPP Perusahaan
+    val totalMaterial: Double = 0.0,
+    val totalLaborMandor: Double = 0.0,
+    val totalLaborWorker: Double = 0.0,
+    val totalMobilization: Double = 0.0,
+    val totalFuel: Double = 0.0,
+    val totalEquipment: Double = 0.0,
+    val totalMaintenance: Double = 0.0,
+    val totalOtherCost: Double = 0.0
 )
 
 data class ProjectCostBreakdown(
     val material: Double = 0.0,
-    val labor: Double = 0.0,
+    val laborMandor: Double = 0.0,
+    val laborWorker: Double = 0.0,
     val mobilization: Double = 0.0,
     val fuel: Double = 0.0,
     val equipment: Double = 0.0,
     val maintenance: Double = 0.0,
     val other: Double = 0.0
-)
+) {
+    val laborTotal: Double get() = laborMandor + laborWorker
+    val labor: Double get() = laborTotal
+}
 
 data class ProjectFinancialSummary(
     val project: ProjectEntity,

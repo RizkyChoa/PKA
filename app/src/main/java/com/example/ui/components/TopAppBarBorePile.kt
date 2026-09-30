@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,7 +35,8 @@ import java.util.Locale
 @Composable
 fun TopAppBarBorePile(
     modifier: Modifier = Modifier,
-    onOpenSync: () -> Unit = {}
+    onOpenSync: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     val todayFormatted = remember {
         val sdf = SimpleDateFormat("EEEE, d MMMM yyyy", Locale("id", "ID"))
@@ -81,6 +83,16 @@ fun TopAppBarBorePile(
                 Icon(
                     imageVector = Icons.Default.CloudSync,
                     contentDescription = "Sinkronisasi Antar HP",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.testTag("btn_topbar_settings")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Pengaturan",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }

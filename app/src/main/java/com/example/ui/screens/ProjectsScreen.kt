@@ -21,6 +21,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Construction
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
@@ -33,6 +35,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -52,8 +55,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.BorePileJobItem
+import com.example.data.model.ProjectEntity
 import com.example.data.model.ProjectFinancialSummary
 import com.example.data.model.formatRupiah
+import com.example.ui.dialogs.AddProjectDialog
 import com.example.ui.theme.ColorExpense
 import com.example.ui.theme.ColorProfit
 import com.example.ui.theme.ColorWarning
@@ -64,12 +70,28 @@ fun ProjectsScreen(
     onOpenAddProject: () -> Unit,
     onCompleteProject: (Long) -> Unit,
     onReopenProject: (Long) -> Unit,
+    onEditProject: (
+        id: Long,
+        name: String,
+        client: String,
+        location: String,
+        startDate: String,
+        targetDate: String,
+        contractAmount: Double,
+        notes: String,
+        jobItems: List<BorePileJobItem>,
+        mobiUnits: Int,
+        mobiPricePerUnit: Double
+    ) -> Unit,
+    onDeleteProject: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Proyek Berjalan (Aktif), 1: Proyek Selesai (Completed)
 
     var projectToComplete by remember { mutableStateOf<ProjectFinancialSummary?>(null) }
     var projectToReopen by remember { mutableStateOf<ProjectFinancialSummary?>(null) }
+    var projectToEdit by remember { mutableStateOf<ProjectEntity?>(null) }
+    var projectToDelete by remember { mutableStateOf<ProjectFinancialSummary?>(null) }
 
     val activeSummaries = remember(projectSummaries) {
         projectSummaries.filter { it.project.status != "COMPLETED" && it.project.status != "CANCELLED" }
@@ -175,6 +197,8 @@ fun ProjectsScreen(
                 items(currentList, key = { it.project.id }) { ps ->
                     ProjectCard(
                         summary = ps,
+                        onEditClick = { projectToEdit = ps.project },
+                        onDeleteClick = { projectToDelete = ps },
                         onCompleteClick = { projectToComplete = ps },
                         onReopenClick = { projectToReopen = ps }
                     )
@@ -184,6 +208,82 @@ fun ProjectsScreen(
                 }
             }
         }
+    }
+
+    // Edit Project Dialog
+    if (projectToEdit != null) {
+        val currentP = projectToEdit!!
+        AddProjectDialog(
+            projectToEdit = currentP,
+            onDismiss = { projectToEdit = null },
+            onSaveProject = { name, client, location, startDate, targetDate, contractAmount, notes, jobItems, mobiUnits, mobiPricePerUnit ->
+                onEditProject(
+                    currentP.id,
+                    name,
+                    client,
+                    location,
+                    startDate,
+                    targetDate,
+                    contractAmount,
+                    notes,
+                    jobItems,
+                    mobiUnits,
+                    mobiPricePerUnit
+                )
+                projectToEdit = null
+            }
+        )
+    }
+
+    // Delete Project Confirmation Dialog
+    if (projectToDelete != null) {
+        val p = projectToDelete!!.project
+        val costs = projectToDelete!!.totalCost
+        val revenue = projectToDelete!!.cashReceived
+        AlertDialog(
+            onDismissRequest = { projectToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Hapus Proyek Ini?") },
+            text = {
+                Column {
+                    Text(
+                        text = "Apakah Anda yakin ingin menghapus proyek '${p.name}' (${p.projectCode})?",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (costs > 0 || revenue > 0) {
+                        Text(
+                            text = "Peringatan: Proyek ini tercatat memiliki penerimaan ${formatRupiah(revenue)} dan biaya ${formatRupiah(costs)}. Menghapus proyek akan menghapusnya dari daftar proyek aktif.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        Text(
+                            text = "Data proyek ini akan dihapus secara permanen dari daftar.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteProject(p.id)
+                        projectToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_project_button")
+                ) {
+                    Text("Ya, Hapus Proyek")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { projectToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
     }
 
     // Complete Project Dialog
@@ -249,6 +349,8 @@ fun ProjectsScreen(
 @Composable
 fun ProjectCard(
     summary: ProjectFinancialSummary,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onCompleteClick: () -> Unit,
     onReopenClick: () -> Unit
 ) {
@@ -264,7 +366,7 @@ fun ProjectCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Code, Title, Status Badge
+            // Header: Code, Title, Status Badge, Edit & Delete Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -283,17 +385,49 @@ fun ProjectCard(
                     )
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = if (isCompleted) ColorProfit.copy(alpha = 0.15f) else ColorWarning.copy(alpha = 0.15f)
-                ) {
-                    Text(
-                        text = if (isCompleted) "SELESAI (COMPLETED)" else "SEDANG BERJALAN",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isCompleted) ColorProfit else ColorWarning,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (isCompleted) ColorProfit.copy(alpha = 0.15f) else ColorWarning.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = if (isCompleted) "SELESAI" else "BERJALAN",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isCompleted) ColorProfit else ColorWarning,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    IconButton(
+                        onClick = onEditClick,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("btn_edit_project_${project.id}")
+                    ) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Proyek",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .testTag("btn_delete_project_${project.id}")
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Hapus Proyek",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             }
 
@@ -325,6 +459,36 @@ fun ProjectCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            val jobList = remember(project) { project.getJobItemsList() }
+            if (jobList.isNotEmpty() || project.mobiUnits > 0) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        jobList.forEachIndexed { idx, j ->
+                            Text(
+                                text = "• ${j.jobName.ifBlank { "Bor #${idx+1}" }}: ${j.pointCount} Titik × ${j.depthMeters}m (${j.totalMeters.toInt()}m') @ ${formatRupiah(j.pricePerMeter)}/m = ${formatRupiah(j.subtotal)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (project.mobiUnits > 0) {
+                            Text(
+                                text = "• Mobilisasi: ${project.mobiUnits} Unit @ ${formatRupiah(project.mobiPricePerUnit)} = ${formatRupiah(project.mobiUnits * project.mobiPricePerUnit)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

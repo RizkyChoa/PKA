@@ -76,6 +76,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionDialog(
+    transactionToEdit: com.example.data.model.TransactionEntity? = null,
     accounts: List<AccountEntity>,
     activeProjects: List<ProjectEntity>, // STRICT: Only active/planning projects! Completed projects are excluded.
     categories: List<CategoryEntity>,
@@ -101,26 +102,32 @@ fun AddTransactionDialog(
     }
 
     // Step 1 Fields
-    var date by remember { mutableStateOf(todayStr) }
-    var type by remember { mutableStateOf("MONEY_OUT") } // MONEY_IN, MONEY_OUT, TRANSFER
-    var amountText by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var paymentMethod by remember { mutableStateOf("TRANSFER") } // TRANSFER, CASH, GIRO
+    var date by remember { mutableStateOf(transactionToEdit?.date ?: todayStr) }
+    var type by remember { mutableStateOf(transactionToEdit?.type ?: "MONEY_OUT") } // MONEY_IN, MONEY_OUT, TRANSFER
+    var amountText by remember {
+        mutableStateOf(
+            if (transactionToEdit != null && transactionToEdit.amount > 0)
+                transactionToEdit.amount.toLong().toString()
+            else ""
+        )
+    }
+    var description by remember { mutableStateOf(transactionToEdit?.description ?: "") }
+    var paymentMethod by remember { mutableStateOf(transactionToEdit?.paymentMethod ?: "TRANSFER") } // TRANSFER, CASH, GIRO
     var selectedAccountId by remember {
-        mutableLongStateOf(accounts.firstOrNull()?.id ?: 1L)
+        mutableLongStateOf(transactionToEdit?.sourceAccountId ?: (accounts.firstOrNull()?.id ?: 1L))
     }
     var destinationAccountId by remember {
-        mutableLongStateOf(accounts.getOrNull(1)?.id ?: 2L)
+        mutableLongStateOf(transactionToEdit?.destinationAccountId ?: (accounts.getOrNull(1)?.id ?: 2L))
     }
 
     // Step 2 Fields (Classification)
-    var classification by remember { mutableStateOf("PROJECT") } // PROJECT, OPERATIONAL, DEBT, RECEIVABLE, EQUITY, TRANSFER
+    var classification by remember { mutableStateOf(transactionToEdit?.classification ?: "PROJECT") } // PROJECT, OPERATIONAL, DEBT, RECEIVABLE, EQUITY, TRANSFER
     var selectedProjectId by remember {
-        mutableLongStateOf(activeProjects.firstOrNull()?.id ?: 0L)
+        mutableLongStateOf(transactionToEdit?.projectId ?: (activeProjects.firstOrNull()?.id ?: 0L))
     }
-    var selectedCostGroup by remember { mutableStateOf("MATERIAL") } // MATERIAL, LABOR, MOBILIZATION, FUEL, EQUIPMENT, MAINTENANCE, OTHER
+    var selectedCostGroup by remember { mutableStateOf(transactionToEdit?.costGroup?.ifBlank { "MATERIAL" } ?: "MATERIAL") } // MATERIAL, LABOR, MOBILIZATION, FUEL, EQUIPMENT, MAINTENANCE, OTHER
     var selectedCategoryId by remember {
-        mutableLongStateOf(categories.firstOrNull()?.id ?: 1L)
+        mutableLongStateOf(transactionToEdit?.categoryId ?: (categories.firstOrNull()?.id ?: 1L))
     }
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -151,8 +158,12 @@ fun AddTransactionDialog(
                 ) {
                     Column {
                         Text(
-                            text = if (step == 1) "Input Transaksi (Tahap 1/2)" else "Klasifikasi Transaksi (Tahap 2/2)",
-                            style = MaterialTheme.typography.titleLarge,
+                            text = if (transactionToEdit != null) {
+                                if (step == 1) "Edit ${transactionToEdit.trxNumber} (1/2)" else "Klasifikasi Edit (2/2)"
+                            } else {
+                                if (step == 1) "Input Transaksi (Tahap 1/2)" else "Klasifikasi Transaksi (Tahap 2/2)"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -586,7 +597,8 @@ fun AddTransactionDialog(
 
                             val costGroupOptions = listOf(
                                 "MATERIAL" to "Material (Beton Ready Mix, Besi Tulangan, Bentonite)",
-                                "LABOR" to "Upah (Operator Rig, Mandor & Kenek Bor)",
+                                "LABOR_MANDOR" to "Upah Mandor & Supervisi Lapangan",
+                                "LABOR_WORKER" to "Upah Pekerja / Operator Rig & Tenaga Bor",
                                 "MOBILIZATION" to "Mobilisasi & Demobilisasi Rig Bore Pile",
                                 "FUEL" to "BBM Solar & Pelumas Alat Berat",
                                 "EQUIPMENT" to "Sewa Alat / Genset / Casing Bor",

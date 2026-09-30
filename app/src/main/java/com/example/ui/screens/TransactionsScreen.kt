@@ -55,6 +55,10 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.ProjectEntity
 import com.example.data.model.TransactionEntity
 import com.example.data.model.formatRupiah
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
 import com.example.ui.theme.ColorExpense
 import com.example.ui.theme.ColorProfit
 import com.example.ui.theme.ColorTransfer
@@ -65,6 +69,8 @@ fun TransactionsScreen(
     transactions: List<TransactionEntity>,
     allProjects: List<ProjectEntity>,
     onOpenAddTransaction: () -> Unit,
+    onEditTransaction: (TransactionEntity) -> Unit,
+    onDeleteTransaction: (Long) -> Unit,
     onRequestVoidTransaction: (TransactionEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -72,6 +78,7 @@ fun TransactionsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedTypeFilter by remember { mutableStateOf("ALL") } // ALL, MONEY_IN, MONEY_OUT, TRANSFER
     var selectedProjectFilter by remember { mutableStateOf<Long?>(null) } // null = Semua
+    var transactionToDelete by remember { mutableStateOf<TransactionEntity?>(null) }
 
     val filteredTransactions = remember(
         transactions,
@@ -245,6 +252,8 @@ fun TransactionsScreen(
                 items(filteredTransactions, key = { it.id }) { trx ->
                     TransactionItemCard(
                         transaction = trx,
+                        onEditClick = { onEditTransaction(trx) },
+                        onDeleteClick = { transactionToDelete = trx },
                         onRequestVoid = { onRequestVoidTransaction(trx) }
                     )
                 }
@@ -254,11 +263,50 @@ fun TransactionsScreen(
             }
         }
     }
+
+    // Delete Transaction Dialog
+    if (transactionToDelete != null) {
+        val t = transactionToDelete!!
+        AlertDialog(
+            onDismissRequest = { transactionToDelete = null },
+            icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text("Hapus Transaksi?") },
+            text = {
+                Column {
+                    Text("Apakah Anda yakin ingin menghapus transaksi '${t.trxNumber}'?")
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Deskripsi: ${t.description}\nNominal: ${formatRupiah(t.amount)}\nSaldo rekening kas dan laporan akan otomatis disesuaikan kembali.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteTransaction(t.id)
+                        transactionToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Ya, Hapus")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { transactionToDelete = null }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun TransactionItemCard(
     transaction: TransactionEntity,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
     onRequestVoid: () -> Unit
 ) {
     val isVoid = transaction.status == "VOID"
@@ -405,18 +453,44 @@ fun TransactionItemCard(
                     )
                 }
 
-                // Void Action Button (if not already voided)
-                if (!isVoid) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(
-                        onClick = onRequestVoid,
-                        modifier = Modifier.size(36.dp)
+                        onClick = onEditClick,
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            Icons.Default.Block,
-                            contentDescription = "Batalkan Transaksi (VOID)",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                            modifier = Modifier.size(20.dp)
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Transaksi",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
                         )
+                    }
+
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Hapus Transaksi",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Void Action Button (if not already voided)
+                    if (!isVoid) {
+                        IconButton(
+                            onClick = onRequestVoid,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Block,
+                                contentDescription = "Batalkan Transaksi (VOID)",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }

@@ -28,6 +28,12 @@ interface AccountDao {
     @Update
     suspend fun updateAccount(account: AccountEntity)
 
+    @Query("DELETE FROM accounts WHERE id = :id")
+    suspend fun deleteAccountById(id: Long)
+
+    @Query("DELETE FROM accounts")
+    suspend fun deleteAllAccounts()
+
     @Query("UPDATE accounts SET currentBalance = currentBalance + :amount WHERE id = :id")
     suspend fun adjustBalance(id: Long, amount: Double)
 }

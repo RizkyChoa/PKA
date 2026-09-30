@@ -40,6 +40,12 @@ interface TransactionDao {
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
 
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteTransactionById(id: Long)
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAllTransactions()
+
     @Query("UPDATE transactions SET status = 'VOID', voidReason = :reason WHERE id = :id")
     suspend fun voidTransaction(id: Long, reason: String)
 }

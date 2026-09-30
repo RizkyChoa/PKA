@@ -25,6 +25,8 @@ import com.example.ui.components.TopAppBarBorePile
 import com.example.ui.dialogs.AddProjectDialog
 import com.example.ui.dialogs.AddTransactionDialog
 import com.example.ui.dialogs.AddWorkerInvoiceDialog
+import com.example.ui.dialogs.ManageAccountsDialog
+import com.example.ui.dialogs.SettingsDialog
 import com.example.ui.dialogs.SyncAndBackupDialog
 import com.example.ui.dialogs.VoidTransactionDialog
 import com.example.ui.screens.CashFlowScreen
@@ -57,9 +59,12 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
 
     // Dialog States
     var showAddTransactionDialog by remember { mutableStateOf(false) }
+    var transactionToEdit by remember { mutableStateOf<TransactionEntity?>(null) }
     var showAddProjectDialog by remember { mutableStateOf(false) }
     var showAddWorkerInvoiceDialog by remember { mutableStateOf(false) }
     var showSyncDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var showManageAccountsDialog by remember { mutableStateOf(false) }
     var transactionToVoid by remember { mutableStateOf<TransactionEntity?>(null) }
 
     // Back button handling: return to dashboard if on sub-screens
@@ -87,7 +92,8 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBarBorePile(
-                onOpenSync = { showSyncDialog = true }
+                onOpenSync = { showSyncDialog = true },
+                onOpenSettings = { showSettingsDialog = true }
             )
         },
         bottomBar = {
@@ -108,7 +114,10 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     selectedProjectId = selectedDashboardProjectId,
                     recentTransactions = allTransactions.take(5),
                     onSelectProject = { viewModel.selectDashboardProject(it) },
-                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    onOpenAddTransaction = {
+                        transactionToEdit = null
+                        showAddTransactionDialog = true
+                    },
                     onNavigateToProjects = { currentScreen = AppScreen.PROJECTS },
                     modifier = screenModifier
                 )
@@ -118,7 +127,17 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                 TransactionsScreen(
                     transactions = allTransactions,
                     allProjects = allProjects,
-                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    onOpenAddTransaction = {
+                        transactionToEdit = null
+                        showAddTransactionDialog = true
+                    },
+                    onEditTransaction = { trx ->
+                        transactionToEdit = trx
+                        showAddTransactionDialog = true
+                    },
+                    onDeleteTransaction = { trxId ->
+                        viewModel.deleteTransaction(trxId)
+                    },
                     onRequestVoidTransaction = { transactionToVoid = it },
                     modifier = screenModifier
                 )
@@ -129,7 +148,11 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     summary = globalSummary,
                     accounts = accounts,
                     dailySummaries = dailySummaries,
-                    onOpenAddTransaction = { showAddTransactionDialog = true },
+                    onOpenAddTransaction = {
+                        transactionToEdit = null
+                        showAddTransactionDialog = true
+                    },
+                    onOpenManageAccounts = { showManageAccountsDialog = true },
                     modifier = screenModifier
                 )
             }
@@ -140,6 +163,22 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     onOpenAddProject = { showAddProjectDialog = true },
                     onCompleteProject = { viewModel.completeProject(it) },
                     onReopenProject = { viewModel.reopenProject(it) },
+                    onEditProject = { id, name, client, location, startDate, targetDate, contractAmount, notes, jobItems, mobiUnits, mobiPricePerUnit ->
+                        viewModel.updateProject(
+                            id = id,
+                            name = name,
+                            client = client,
+                            location = location,
+                            startDate = startDate,
+                            targetDate = targetDate,
+                            contractAmount = contractAmount,
+                            notes = notes,
+                            jobItems = jobItems,
+                            mobiUnits = mobiUnits,
+                            mobiPricePerUnit = mobiPricePerUnit
+                        )
+                    },
+                    onDeleteProject = { viewModel.deleteProject(it) },
                     modifier = screenModifier
                 )
             }
@@ -206,27 +245,51 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
         }
     }
 
-    // Modal Dialog: Add Transaction (2-Step Wizard)
+    // Modal Dialog: Add / Edit Transaction
     if (showAddTransactionDialog) {
         AddTransactionDialog(
+            transactionToEdit = transactionToEdit,
             accounts = accounts,
             activeProjects = activeProjects, // Pass STRICTLY active projects!
             categories = categories,
-            onDismiss = { showAddTransactionDialog = false },
+            onDismiss = {
+                showAddTransactionDialog = false
+                transactionToEdit = null
+            },
             onSaveTransaction = { date, type, amount, desc, method, sourceId, destId, catId, classification, projId, costGrp ->
-                viewModel.createTransaction(
-                    date = date,
-                    type = type,
-                    amount = amount,
-                    description = desc,
-                    paymentMethod = method,
-                    sourceAccountId = sourceId,
-                    destinationAccountId = destId,
-                    categoryId = catId,
-                    classification = classification,
-                    projectId = projId,
-                    costGroup = costGrp
-                )
+                if (transactionToEdit != null) {
+                    viewModel.updateTransaction(
+                        transactionToEdit!!.copy(
+                            date = date,
+                            type = type,
+                            amount = amount,
+                            description = desc,
+                            paymentMethod = method,
+                            sourceAccountId = sourceId,
+                            destinationAccountId = destId,
+                            categoryId = catId,
+                            classification = classification,
+                            projectId = projId,
+                            costGroup = costGrp
+                        )
+                    )
+                } else {
+                    viewModel.createTransaction(
+                        date = date,
+                        type = type,
+                        amount = amount,
+                        description = desc,
+                        paymentMethod = method,
+                        sourceAccountId = sourceId,
+                        destinationAccountId = destId,
+                        categoryId = catId,
+                        classification = classification,
+                        projectId = projId,
+                        costGroup = costGrp
+                    )
+                }
+                showAddTransactionDialog = false
+                transactionToEdit = null
             }
         )
     }
@@ -235,7 +298,7 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
     if (showAddProjectDialog) {
         AddProjectDialog(
             onDismiss = { showAddProjectDialog = false },
-            onSaveProject = { name, client, location, start, target, contract, notes ->
+            onSaveProject = { name, client, location, start, target, contract, notes, jobItems, mobiUnits, mobiPricePerUnit ->
                 viewModel.createProject(
                     name = name,
                     client = client,
@@ -243,8 +306,12 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     startDate = start,
                     targetDate = target,
                     contractAmount = contract,
-                    notes = notes
+                    notes = notes,
+                    jobItems = jobItems,
+                    mobiUnits = mobiUnits,
+                    mobiPricePerUnit = mobiPricePerUnit
                 )
+                showAddProjectDialog = false
             }
         )
     }
@@ -254,11 +321,12 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
         AddWorkerInvoiceDialog(
             projects = allProjects,
             onDismiss = { showAddWorkerInvoiceDialog = false },
-            onSaveInvoice = { projId, projName, leader, date, notes, jobs, loans ->
+            onSaveInvoice = { projId, projName, leader, role, date, notes, jobs, loans ->
                 viewModel.createWorkerInvoice(
                     projectId = projId,
                     projectName = projName,
                     workerLeaderName = leader,
+                    workerRole = role,
                     date = date,
                     notes = notes,
                     jobItems = jobs,
@@ -296,6 +364,33 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                 viewModel.importBackup(context, uri, callback)
             },
             onClearMessage = { viewModel.clearSyncMessage() }
+        )
+    }
+
+    // Modal Dialog: Settings
+    if (showSettingsDialog) {
+        SettingsDialog(
+            onDismiss = { showSettingsDialog = false },
+            onOpenManageAccounts = { showManageAccountsDialog = true },
+            onOpenBackupSync = { showSyncDialog = true },
+            onResetAllData = { viewModel.resetAllData() }
+        )
+    }
+
+    // Modal Dialog: Manage Accounts (Buku Kas & Rekening)
+    if (showManageAccountsDialog) {
+        ManageAccountsDialog(
+            accounts = accounts,
+            onDismiss = { showManageAccountsDialog = false },
+            onCreateAccount = { name, type, accNumber, initialBal ->
+                viewModel.createAccount(name, type, accNumber, initialBal)
+            },
+            onUpdateAccount = { acc ->
+                viewModel.updateAccount(acc)
+            },
+            onDeleteAccount = { accId ->
+                viewModel.deleteAccount(accId)
+            }
         )
     }
 }

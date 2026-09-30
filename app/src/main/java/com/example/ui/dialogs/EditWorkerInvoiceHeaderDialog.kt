@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -16,6 +18,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.FilterChip
@@ -39,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.data.model.WorkerInvoiceEntity
 
 @Composable
@@ -47,19 +52,25 @@ fun EditWorkerInvoiceHeaderDialog(
     onDismiss: () -> Unit,
     onSave: (WorkerInvoiceEntity) -> Unit
 ) {
+    var workerRole by remember { mutableStateOf(invoice.workerRole) }
     var workerLeaderName by remember { mutableStateOf(invoice.workerLeaderName) }
     var date by remember { mutableStateOf(invoice.date) }
     var status by remember { mutableStateOf(invoice.status) }
     var notes by remember { mutableStateOf(invoice.notes) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Surface(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp,
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.95f)
+                .navigationBarsPadding()
+                .imePadding()
                 .padding(vertical = 16.dp)
         ) {
             Column(
@@ -112,11 +123,38 @@ fun EditWorkerInvoiceHeaderDialog(
                 HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Kategori Penerima
+                Text(
+                    text = "Kategori Penerima Upah:",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = workerRole == "MANDOR",
+                        onClick = { workerRole = "MANDOR" },
+                        label = { Text("Upah Mandor", fontWeight = if (workerRole == "MANDOR") FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                    FilterChip(
+                        selected = workerRole == "PEKERJA",
+                        onClick = { workerRole = "PEKERJA" },
+                        label = { Text("Upah Pekerja", fontWeight = if (workerRole == "PEKERJA") FontWeight.Bold else FontWeight.Normal, fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
                 // Nama Mandor / Pekerja
                 OutlinedTextField(
                     value = workerLeaderName,
                     onValueChange = { workerLeaderName = it; errorMessage = null },
-                    label = { Text("Nama Mandor / Pekerja *") },
+                    label = { Text(if (workerRole == "MANDOR") "Nama Mandor Lapangan *" else "Nama Tim Pekerja *") },
                     placeholder = { Text("contoh: Pak Bambang (Mandor 1)") },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -217,6 +255,7 @@ fun EditWorkerInvoiceHeaderDialog(
                             onSave(
                                 invoice.copy(
                                     workerLeaderName = workerLeaderName.trim(),
+                                    workerRole = workerRole,
                                     date = date.trim(),
                                     status = status,
                                     notes = notes.trim()

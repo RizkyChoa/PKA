@@ -184,6 +184,7 @@ object BackupManager {
                 put("projectId", w.projectId)
                 put("projectName", w.projectName)
                 put("workerLeaderName", w.workerLeaderName)
+                put("workerRole", w.workerRole)
                 put("date", w.date)
                 put("status", w.status)
                 put("notes", w.notes)
@@ -378,6 +379,7 @@ object BackupManager {
                     projectId = obj.optLong("projectId", 0L),
                     projectName = obj.optString("projectName", ""),
                     workerLeaderName = obj.optString("workerLeaderName", ""),
+                    workerRole = obj.optString("workerRole", "PEKERJA"),
                     date = obj.optString("date", ""),
                     status = obj.optString("status", "LUNAS"),
                     notes = obj.optString("notes", ""),
