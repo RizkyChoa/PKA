@@ -8,6 +8,7 @@ import com.example.data.model.AccountEntity
 import com.example.data.model.AuditLogEntity
 import com.example.data.model.CategoryEntity
 import com.example.data.model.PayableEntity
+import com.example.data.model.ProfitPartnerEntity
 import com.example.data.model.ProjectEntity
 import com.example.data.model.ReceivableEntity
 import com.example.data.model.TransactionEntity
@@ -26,9 +27,10 @@ import com.example.data.model.WorkerLoanItemEntity
         AuditLogEntity::class,
         WorkerInvoiceEntity::class,
         WorkerJobItemEntity::class,
-        WorkerLoanItemEntity::class
+        WorkerLoanItemEntity::class,
+        ProfitPartnerEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,6 +42,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun payableDao(): PayableDao
     abstract fun auditLogDao(): AuditLogDao
     abstract fun workerInvoiceDao(): WorkerInvoiceDao
+    abstract fun profitPartnerDao(): ProfitPartnerDao
 
     companion object {
         @Volatile

@@ -59,6 +59,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val payables = repository.allPayables
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val profitPartners = repository.allProfitPartners
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Worker Invoices With Details
     val workerInvoicesWithDetails: StateFlow<List<com.example.data.model.WorkerInvoiceWithDetails>> = combine(
         repository.allWorkerInvoices,
@@ -451,7 +454,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         categoryId: Long,
         classification: String,
         projectId: Long? = null,
-        costGroup: String = ""
+        costGroup: String = "",
+        receivableId: Long? = null,
+        payableId: Long? = null,
+        profitPartnerId: Long? = null,
+        profitPartnerName: String? = null
     ) {
         viewModelScope.launch {
             repository.createTransaction(
@@ -465,6 +472,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 categoryId = categoryId,
                 classification = classification,
                 projectId = projectId,
+                receivableId = receivableId,
+                payableId = payableId,
+                profitPartnerId = profitPartnerId,
+                profitPartnerName = profitPartnerName,
                 costGroup = costGroup
             )
         }
@@ -625,6 +636,109 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateWorkerInvoice(invoice: com.example.data.model.WorkerInvoiceEntity) {
         viewModelScope.launch {
             repository.updateWorkerInvoice(invoice)
+        }
+    }
+
+    // Profit Partners (Bagi Hasil) Management
+    fun createProfitPartner(name: String, percentage: Double, phone: String = "", notes: String = "") {
+        viewModelScope.launch {
+            repository.insertProfitPartner(
+                com.example.data.model.ProfitPartnerEntity(
+                    name = name.trim(),
+                    sharePercentage = percentage,
+                    phone = phone.trim(),
+                    notes = notes.trim()
+                )
+            )
+        }
+    }
+
+    fun updateProfitPartner(id: Long, name: String, percentage: Double, phone: String = "", notes: String = "") {
+        viewModelScope.launch {
+            repository.updateProfitPartner(
+                com.example.data.model.ProfitPartnerEntity(
+                    id = id,
+                    name = name.trim(),
+                    sharePercentage = percentage,
+                    phone = phone.trim(),
+                    notes = notes.trim()
+                )
+            )
+        }
+    }
+
+    fun deleteProfitPartner(id: Long) {
+        viewModelScope.launch {
+            repository.deleteProfitPartner(id)
+        }
+    }
+
+    fun payPayablesBatch(payableIds: List<Long>, sourceAccountId: Long, date: String, method: String = "TRANSFER", notes: String = "") {
+        viewModelScope.launch {
+            repository.payPayablesBatch(payableIds, sourceAccountId, date, method, notes)
+        }
+    }
+
+    fun payReceivablesBatch(receivableIds: List<Long>, destinationAccountId: Long, date: String, method: String = "TRANSFER", notes: String = "") {
+        viewModelScope.launch {
+            repository.payReceivablesBatch(receivableIds, destinationAccountId, date, method, notes)
+        }
+    }
+
+    fun createPayable(
+        creditorName: String,
+        type: String,
+        description: String,
+        totalAmount: Double,
+        dueDate: String,
+        destinationAccountId: Long? = null,
+        transactionDate: String = dueDate
+    ) {
+        viewModelScope.launch {
+            val accId = destinationAccountId ?: accounts.value.firstOrNull()?.id ?: 1L
+            repository.insertPayableWithTransaction(
+                creditorName = creditorName,
+                type = type,
+                description = description,
+                totalAmount = totalAmount,
+                dueDate = dueDate,
+                destinationAccountId = accId,
+                transactionDate = transactionDate
+            )
+        }
+    }
+
+    fun deletePayable(id: Long) {
+        viewModelScope.launch {
+            repository.deletePayable(id)
+        }
+    }
+
+    fun createReceivable(clientName: String, projectName: String, invoiceNumber: String, description: String, totalAmount: Double, dueDate: String, projectId: Long? = null) {
+        viewModelScope.launch {
+            repository.insertReceivable(
+                com.example.data.model.ReceivableEntity(
+                    projectId = projectId,
+                    projectName = projectName.trim(),
+                    clientName = clientName.trim(),
+                    invoiceNumber = invoiceNumber.trim(),
+                    description = description.trim(),
+                    totalAmount = totalAmount,
+                    dueDate = dueDate
+                )
+            )
+        }
+    }
+
+    fun deleteReceivable(id: Long) {
+        viewModelScope.launch {
+            repository.deleteReceivable(id)
+        }
+    }
+
+    fun receiveProjectPayment(projectId: Long, amount: Double, destinationAccountId: Long, date: String, method: String = "TRANSFER", notes: String = "") {
+        viewModelScope.launch {
+            repository.receiveProjectPayment(projectId, amount, destinationAccountId, date, method, notes)
         }
     }
 

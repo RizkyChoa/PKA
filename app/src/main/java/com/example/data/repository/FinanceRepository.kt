@@ -5,6 +5,7 @@ import com.example.data.model.AccountEntity
 import com.example.data.model.AuditLogEntity
 import com.example.data.model.CategoryEntity
 import com.example.data.model.PayableEntity
+import com.example.data.model.ProfitPartnerEntity
 import com.example.data.model.ProjectEntity
 import com.example.data.model.ReceivableEntity
 import com.example.data.model.TransactionEntity
@@ -25,7 +26,20 @@ class FinanceRepository(private val db: AppDatabase) {
     val validTransactions: Flow<List<TransactionEntity>> = db.transactionDao().getValidTransactions()
     val allReceivables: Flow<List<ReceivableEntity>> = db.receivableDao().getAllReceivables()
     val allPayables: Flow<List<PayableEntity>> = db.payableDao().getAllPayables()
+    val allProfitPartners: Flow<List<ProfitPartnerEntity>> = db.profitPartnerDao().getAllPartners()
     val auditLogs: Flow<List<AuditLogEntity>> = db.auditLogDao().getAllLogs()
+
+    suspend fun insertProfitPartner(partner: ProfitPartnerEntity): Long = withContext(Dispatchers.IO) {
+        db.profitPartnerDao().insertPartner(partner)
+    }
+
+    suspend fun updateProfitPartner(partner: ProfitPartnerEntity) = withContext(Dispatchers.IO) {
+        db.profitPartnerDao().updatePartner(partner)
+    }
+
+    suspend fun deleteProfitPartner(partnerId: Long) = withContext(Dispatchers.IO) {
+        db.profitPartnerDao().deletePartnerById(partnerId)
+    }
 
     suspend fun getProjectTransactions(projectId: Long): Flow<List<TransactionEntity>> {
         return db.transactionDao().getValidTransactionsByProject(projectId)
@@ -123,6 +137,8 @@ class FinanceRepository(private val db: AppDatabase) {
         projectId: Long? = null,
         receivableId: Long? = null,
         payableId: Long? = null,
+        profitPartnerId: Long? = null,
+        profitPartnerName: String? = null,
         costGroup: String = ""
     ): Long = withContext(Dispatchers.IO) {
         val count = db.transactionDao().getTransactionCount() + 1
@@ -137,8 +153,6 @@ class FinanceRepository(private val db: AppDatabase) {
         val project = projectId?.let { db.projectDao().getProjectById(it) }
         val projectName = project?.name
 
-        val categories = db.categoryDao()
-        // If classification is PROJECT, double-check that project is valid and active
         val finalCostGroup = if (classification == "PROJECT") {
             costGroup.ifBlank { "OTHER" }
         } else ""
@@ -195,7 +209,9 @@ class FinanceRepository(private val db: AppDatabase) {
             projectName = projectName,
             costGroup = finalCostGroup,
             receivableId = receivableId,
-            payableId = payableId
+            payableId = payableId,
+            profitPartnerId = profitPartnerId,
+            profitPartnerName = profitPartnerName
         )
 
         val insertedId = db.transactionDao().insertTransaction(transaction)
@@ -211,6 +227,82 @@ class FinanceRepository(private val db: AppDatabase) {
         )
 
         insertedId
+    }
+
+    suspend fun payPayablesBatch(
+        payableIds: List<Long>,
+        sourceAccountId: Long,
+        date: String,
+        paymentMethod: String = "TRANSFER",
+        notes: String = ""
+    ) = withContext(Dispatchers.IO) {
+        for (pId in payableIds) {
+            val pay = db.payableDao().getPayableById(pId) ?: continue
+            val remaining = pay.remainingAmount
+            if (remaining <= 0) continue
+            val desc = if (notes.isNotBlank()) "$notes (${pay.creditorName})" else "Pelunasan Utang: ${pay.creditorName} (${pay.description})"
+            createTransaction(
+                date = date,
+                type = "MONEY_OUT",
+                amount = remaining,
+                description = desc,
+                paymentMethod = paymentMethod,
+                sourceAccountId = sourceAccountId,
+                categoryId = 20L,
+                classification = "DEBT",
+                payableId = pId
+            )
+        }
+    }
+
+    suspend fun payReceivablesBatch(
+        receivableIds: List<Long>,
+        destinationAccountId: Long,
+        date: String,
+        paymentMethod: String = "TRANSFER",
+        notes: String = ""
+    ) = withContext(Dispatchers.IO) {
+        for (rId in receivableIds) {
+            val rec = db.receivableDao().getReceivableById(rId) ?: continue
+            val remaining = rec.remainingAmount
+            if (remaining <= 0) continue
+            val desc = if (notes.isNotBlank()) "$notes (${rec.clientName})" else "Penerimaan Piutang: ${rec.clientName} (${rec.description})"
+            createTransaction(
+                date = date,
+                type = "MONEY_IN",
+                amount = remaining,
+                description = desc,
+                paymentMethod = paymentMethod,
+                sourceAccountId = destinationAccountId,
+                categoryId = 3L,
+                classification = "RECEIVABLE",
+                receivableId = rId,
+                projectId = rec.projectId
+            )
+        }
+    }
+
+    suspend fun receiveProjectPayment(
+        projectId: Long,
+        amount: Double,
+        destinationAccountId: Long,
+        date: String,
+        paymentMethod: String = "TRANSFER",
+        notes: String = ""
+    ) = withContext(Dispatchers.IO) {
+        val proj = db.projectDao().getProjectById(projectId) ?: return@withContext
+        val desc = if (notes.isNotBlank()) notes else "Penerimaan Termin Proyek: ${proj.name} (${proj.clientName})"
+        createTransaction(
+            date = date,
+            type = "MONEY_IN",
+            amount = amount,
+            description = desc,
+            paymentMethod = paymentMethod,
+            sourceAccountId = destinationAccountId,
+            categoryId = 2L, // Pembayaran Termin Proyek
+            classification = "PROJECT",
+            projectId = projectId
+        )
     }
 
     suspend fun voidTransaction(id: Long, reason: String) = withContext(Dispatchers.IO) {
@@ -267,8 +359,52 @@ class FinanceRepository(private val db: AppDatabase) {
         db.receivableDao().insertReceivable(receivable)
     }
 
+    suspend fun deleteReceivable(id: Long) = withContext(Dispatchers.IO) {
+        db.receivableDao().deleteReceivableById(id)
+    }
+
     suspend fun insertPayable(payable: PayableEntity): Long = withContext(Dispatchers.IO) {
         db.payableDao().insertPayable(payable)
+    }
+
+    suspend fun insertPayableWithTransaction(
+        creditorName: String,
+        type: String,
+        description: String,
+        totalAmount: Double,
+        dueDate: String,
+        destinationAccountId: Long,
+        transactionDate: String = dueDate,
+        paymentMethod: String = "TRANSFER"
+    ): Long = withContext(Dispatchers.IO) {
+        val payable = PayableEntity(
+            creditorName = creditorName.trim(),
+            type = type,
+            description = description.trim(),
+            totalAmount = totalAmount,
+            paidAmount = 0.0,
+            status = "UNPAID",
+            dueDate = dueDate
+        )
+        val payableId = db.payableDao().insertPayable(payable)
+        val trxDesc = if (description.isNotBlank()) "Penerimaan Pinjaman/Utang $creditorName - $description" else "Penerimaan Pinjaman/Utang dari $creditorName"
+        createTransaction(
+            date = transactionDate,
+            type = "MONEY_IN",
+            amount = totalAmount,
+            description = trxDesc,
+            paymentMethod = paymentMethod,
+            sourceAccountId = destinationAccountId,
+            destinationAccountId = null,
+            categoryId = 19L, // Penerimaan Pinjaman Modal / Bank
+            classification = "DEBT",
+            payableId = payableId
+        )
+        payableId
+    }
+
+    suspend fun deletePayable(id: Long) = withContext(Dispatchers.IO) {
+        db.payableDao().deletePayableById(id)
     }
 
     // Worker Invoices

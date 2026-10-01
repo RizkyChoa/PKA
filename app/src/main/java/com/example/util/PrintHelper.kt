@@ -654,4 +654,124 @@ object PrintHelper {
         </html>
         """.trimIndent()
     }
+
+    // 5. Print Laporan Pembagian Hasil Profit
+    fun generateProfitShareHtml(
+        projectSummaries: List<ProjectFinancialSummary>,
+        partners: List<com.example.data.model.ProfitPartnerEntity>,
+        transactions: List<TransactionEntity>
+    ): String {
+        val today = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")).format(Date())
+        val totalGrossProfit = projectSummaries.sumOf { it.grossProfit }
+
+        val partnerCardsHtml = partners.joinToString("") { partner ->
+            val grossShare = totalGrossProfit * (partner.sharePercentage / 100.0)
+            val deductions = transactions.filter {
+                it.status == "VALID" &&
+                it.classification == "PENGAMBILAN_PROFIT" &&
+                (it.profitPartnerId == partner.id || it.profitPartnerName.equals(partner.name, ignoreCase = true))
+            }.sumOf { it.amount }
+            val netShare = grossShare - deductions
+
+            val perProjectRows = projectSummaries.joinToString("") { ps ->
+                val prjGross = ps.grossProfit
+                val prjShare = prjGross * (partner.sharePercentage / 100.0)
+                """
+                <tr>
+                    <td style="padding: 6px 10px; border-bottom: 1px solid #f1f5f9;">${ps.project.name}</td>
+                    <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #f1f5f9;">${formatRupiah(prjGross)}</td>
+                    <td style="padding: 6px 10px; text-align: right; font-weight: bold; border-bottom: 1px solid #f1f5f9; color: #1e3a8a;">${formatRupiah(prjShare)}</td>
+                </tr>
+                """.trimIndent()
+            }
+
+            """
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <table style="width: 100%; margin-bottom: 10px;">
+                    <tr>
+                        <td>
+                            <h3 style="margin: 0; color: #0f172a; font-size: 16px;">${partner.name}</h3>
+                            <span style="font-size: 12px; color: #64748b;">Porsi Bagian: <b>${partner.sharePercentage.toInt()}%</b></span>
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="font-size: 12px; color: #64748b;">Sisa Bersih Profit Diterima:</div>
+                            <div style="font-size: 18px; font-weight: 800; color: #15803d;">${formatRupiah(netShare)}</div>
+                        </td>
+                    </tr>
+                </table>
+
+                <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px;">
+                    <thead>
+                        <tr style="background: #f8fafc; color: #475569; text-align: left;">
+                            <th style="padding: 6px 10px;">Proyek</th>
+                            <th style="padding: 6px 10px; text-align: right;">Laba Kotor Proyek</th>
+                            <th style="padding: 6px 10px; text-align: right;">Jatah (${partner.sharePercentage.toInt()}%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        $perProjectRows
+                    </tbody>
+                </table>
+
+                <table style="width: 100%; font-size: 12px; background: #f8fafc; padding: 8px; border-radius: 6px;">
+                    <tr>
+                        <td>Subtotal Jatah Kotor:</td>
+                        <td style="text-align: right; font-weight: bold;">${formatRupiah(grossShare)}</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #dc2626;">Pengambilan Profit (Dipotong):</td>
+                        <td style="text-align: right; font-weight: bold; color: #dc2626;">-${formatRupiah(deductions)}</td>
+                    </tr>
+                    <tr style="border-top: 1px solid #cbd5e1; font-weight: bold;">
+                        <td style="padding-top: 4px; color: #15803d;">SISA PROFIT BERSIH:</td>
+                        <td style="padding-top: 4px; text-align: right; color: #15803d; font-size: 14px;">${formatRupiah(netShare)}</td>
+                    </tr>
+                </table>
+            </div>
+            """.trimIndent()
+        }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Laporan Pembagian Hasil Profit</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 25px; color: #1e293b; background: #f8fafc; }
+                .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+                .header h1 { margin: 0; color: #0f172a; font-size: 20px; text-transform: uppercase; }
+                .total-banner { background: #1e3a8a; color: white; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+                .footer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 30px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Laporan Pembagian Hasil Profit Partner</h1>
+                <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Tanggal Cetak: $today</div>
+            </div>
+
+            <div class="total-banner">
+                <table style="width: 100%;">
+                    <tr>
+                        <td>
+                            <div style="font-size: 13px; opacity: 0.9;">TOTAL LABA KOTOR SELURUH PROYEK:</div>
+                            <div style="font-size: 24px; font-weight: 800;">${formatRupiah(totalGrossProfit)}</div>
+                        </td>
+                        <td style="text-align: right; vertical-align: middle;">
+                            <div style="font-size: 13px; opacity: 0.9;">Jumlah Mitra: ${partners.size} Orang</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            $partnerCardsHtml
+
+            <div class="footer">
+                Dokumen ini dicetak otomatis dari Sistem Aplikasi Manajemen Keuangan Bore Pile.
+            </div>
+        </body>
+        </html>
+        """.trimIndent()
+    }
 }

@@ -30,4 +30,7 @@ interface PayableDao {
 
     @Update
     suspend fun updatePayable(payable: PayableEntity)
+
+    @Query("DELETE FROM payables WHERE id = :id")
+    suspend fun deletePayableById(id: Long)
 }

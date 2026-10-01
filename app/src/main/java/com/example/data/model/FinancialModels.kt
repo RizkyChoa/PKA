@@ -8,6 +8,30 @@ fun formatRupiah(amount: Double): String {
     return formatter.format(amount).replace("Rp", "Rp ").replace(",00", "")
 }
 
+fun formatNumberWithDots(number: Long): String {
+    val str = number.toString()
+    val sb = StringBuilder()
+    for (i in str.indices) {
+        if (i > 0 && (str.length - i) % 3 == 0) {
+            sb.append('.')
+        }
+        sb.append(str[i])
+    }
+    return sb.toString()
+}
+
+fun formatInputNumber(input: String): String {
+    val digits = input.filter { it.isDigit() }
+    if (digits.isEmpty()) return ""
+    val parsed = digits.toLongOrNull() ?: 0L
+    return formatNumberWithDots(parsed)
+}
+
+fun parseInputNumber(input: String): Double {
+    val digits = input.filter { it.isDigit() }
+    return digits.toDoubleOrNull() ?: 0.0
+}
+
 data class GlobalFinancialSummary(
     val totalCash: Double = 0.0,
     val totalCashIn: Double = 0.0,
@@ -26,6 +50,7 @@ data class GlobalFinancialSummary(
     val totalMaterial: Double = 0.0,
     val totalLaborMandor: Double = 0.0,
     val totalLaborWorker: Double = 0.0,
+    val totalConsumption: Double = 0.0, // Konsumsi Anggota Bore Pile
     val totalMobilization: Double = 0.0,
     val totalFuel: Double = 0.0,
     val totalEquipment: Double = 0.0,
@@ -37,6 +62,7 @@ data class ProjectCostBreakdown(
     val material: Double = 0.0,
     val laborMandor: Double = 0.0,
     val laborWorker: Double = 0.0,
+    val consumption: Double = 0.0, // Konsumsi Anggota Bore Pile
     val mobilization: Double = 0.0,
     val fuel: Double = 0.0,
     val equipment: Double = 0.0,
@@ -64,4 +90,18 @@ data class DailyCashSummary(
     val totalOut: Double,
     val netFlow: Double,
     val transactions: List<TransactionEntity>
+)
+
+data class PartnerProfitShare(
+    val partner: ProfitPartnerEntity,
+    val sharePercentage: Double,
+    val grossShareAmount: Double, // Hak profit kotor berdasarkan % bagi hasil
+    val totalWithdrawn: Double, // Total pengambilan profit / prive yang sudah ditarik
+    val netRemainingProfit: Double // Sisa profit bersih yang diterima
+)
+
+data class ProfitDistributionSummary(
+    val projectContextName: String, // "Semua Proyek (Seluruh Perusahaan)" atau nama proyek tertentu
+    val totalDistributableProfit: Double, // Total laba yang dibagikan
+    val partnerShares: List<PartnerProfitShare>
 )

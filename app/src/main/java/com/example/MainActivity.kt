@@ -84,6 +84,7 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
     val dailySummaries by viewModel.dailySummaries.collectAsStateWithLifecycle()
     val receivables by viewModel.receivables.collectAsStateWithLifecycle()
     val payables by viewModel.payables.collectAsStateWithLifecycle()
+    val profitPartners by viewModel.profitPartners.collectAsStateWithLifecycle()
     val workerInvoicesWithDetails by viewModel.workerInvoicesWithDetails.collectAsStateWithLifecycle()
     val selectedDashboardProjectId by viewModel.selectedDashboardProjectId.collectAsStateWithLifecycle()
     val syncMessage by viewModel.syncStateMessage.collectAsStateWithLifecycle()
@@ -239,6 +240,39 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     projectSummaries = projectSummaries,
                     receivables = receivables,
                     payables = payables,
+                    profitPartners = profitPartners,
+                    allTransactions = allTransactions,
+                    accounts = accounts,
+                    onCreatePartner = { name, pct, phone, notes ->
+                        viewModel.createProfitPartner(name, pct, phone, notes)
+                    },
+                    onUpdatePartner = { id, name, pct, phone, notes ->
+                        viewModel.updateProfitPartner(id, name, pct, phone, notes)
+                    },
+                    onDeletePartner = { id ->
+                        viewModel.deleteProfitPartner(id)
+                    },
+                    onPayPayablesBatch = { pIds, accId, date, method, notes ->
+                        viewModel.payPayablesBatch(pIds, accId, date, method, notes)
+                    },
+                    onPayReceivablesBatch = { rIds, accId, date, method, notes ->
+                        viewModel.payReceivablesBatch(rIds, accId, date, method, notes)
+                    },
+                    onCreatePayable = { name, type, desc, amt, due, accId ->
+                        viewModel.createPayable(name, type, desc, amt, due, accId)
+                    },
+                    onDeletePayable = { id ->
+                        viewModel.deletePayable(id)
+                    },
+                    onCreateReceivable = { client, proj, inv, desc, amt, due, pId ->
+                        viewModel.createReceivable(client, proj, inv, desc, amt, due, pId)
+                    },
+                    onDeleteReceivable = { id ->
+                        viewModel.deleteReceivable(id)
+                    },
+                    onReceiveProjectPayment = { pId, amt, accId, date, method, notes ->
+                        viewModel.receiveProjectPayment(pId, amt, accId, date, method, notes)
+                    },
                     modifier = screenModifier
                 )
             }
@@ -250,13 +284,16 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
         AddTransactionDialog(
             transactionToEdit = transactionToEdit,
             accounts = accounts,
-            activeProjects = activeProjects, // Pass STRICTLY active projects!
+            activeProjects = activeProjects,
             categories = categories,
+            profitPartners = profitPartners,
+            payables = payables,
+            receivables = receivables,
             onDismiss = {
                 showAddTransactionDialog = false
                 transactionToEdit = null
             },
-            onSaveTransaction = { date, type, amount, desc, method, sourceId, destId, catId, classification, projId, costGrp ->
+            onSaveTransaction = { date, type, amount, desc, method, sourceId, destId, catId, classification, projId, costGrp, recId, payId, partnerId, partnerName ->
                 if (transactionToEdit != null) {
                     viewModel.updateTransaction(
                         transactionToEdit!!.copy(
@@ -270,7 +307,11 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                             categoryId = catId,
                             classification = classification,
                             projectId = projId,
-                            costGroup = costGrp
+                            costGroup = costGrp,
+                            receivableId = recId,
+                            payableId = payId,
+                            profitPartnerId = partnerId,
+                            profitPartnerName = partnerName
                         )
                     )
                 } else {
@@ -285,7 +326,11 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                         categoryId = catId,
                         classification = classification,
                         projectId = projId,
-                        costGroup = costGrp
+                        costGroup = costGrp,
+                        receivableId = recId,
+                        payableId = payId,
+                        profitPartnerId = partnerId,
+                        profitPartnerName = partnerName
                     )
                 }
                 showAddTransactionDialog = false

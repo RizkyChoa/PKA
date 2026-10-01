@@ -83,14 +83,26 @@ fun WorkerLoanDialog(
     var date by remember { mutableStateOf(defaultDate) }
     var description by remember { mutableStateOf(initialLoan?.description ?: "") }
     var trxType by remember { mutableStateOf(initialLoan?.trxType ?: "TRANSFER") }
-    var amountStr by remember { mutableStateOf(if (initialLoan != null && initialLoan.amount > 0) initialLoan.amount.toLong().toString() else "") }
+    var amountStr by remember {
+        mutableStateOf(
+            if (initialLoan != null && initialLoan.amount > 0)
+                com.example.util.CurrencyFormatter.formatInput(initialLoan.amount.toLong().toString())
+            else ""
+        )
+    }
     var deductionDesc by remember { mutableStateOf(initialLoan?.deductionDescription ?: "") }
-    var deductionAmountStr by remember { mutableStateOf(if (initialLoan != null && initialLoan.deductionAmount > 0) initialLoan.deductionAmount.toLong().toString() else "") }
+    var deductionAmountStr by remember {
+        mutableStateOf(
+            if (initialLoan != null && initialLoan.deductionAmount > 0)
+                com.example.util.CurrencyFormatter.formatInput(initialLoan.deductionAmount.toLong().toString())
+            else ""
+        )
+    }
 
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val amountDouble = amountStr.toDoubleOrNull() ?: 0.0
-    val deductionDouble = deductionAmountStr.toDoubleOrNull() ?: 0.0
+    val amountDouble = com.example.util.CurrencyFormatter.parseInput(amountStr)
+    val deductionDouble = com.example.util.CurrencyFormatter.parseInput(deductionAmountStr)
     val netAmount = (amountDouble - deductionDouble).coerceAtLeast(0.0)
 
     val rupiahFormat = remember {
@@ -210,9 +222,9 @@ fun WorkerLoanDialog(
                 // Nominal Kasbon
                 OutlinedTextField(
                     value = amountStr,
-                    onValueChange = { amountStr = it.filter { char -> char.isDigit() } },
+                    onValueChange = { amountStr = com.example.util.CurrencyFormatter.formatInput(it) },
                     label = { Text("Nominal Kasbon / Pinjaman (Rp) *") },
-                    placeholder = { Text("0") },
+                    placeholder = { Text("5.000.000") },
                     leadingIcon = { Icon(Icons.Default.MonetizationOn, contentDescription = null, tint = ColorExpense) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier
@@ -258,9 +270,9 @@ fun WorkerLoanDialog(
 
                         OutlinedTextField(
                             value = deductionAmountStr,
-                            onValueChange = { deductionAmountStr = it.filter { char -> char.isDigit() } },
+                            onValueChange = { deductionAmountStr = com.example.util.CurrencyFormatter.formatInput(it) },
                             label = { Text("Nominal Potongan (Rp)") },
-                            placeholder = { Text("0") },
+                            placeholder = { Text("1.500.000") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier
                                 .fillMaxWidth()

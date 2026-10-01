@@ -30,4 +30,7 @@ interface ReceivableDao {
 
     @Update
     suspend fun updateReceivable(receivable: ReceivableEntity)
+
+    @Query("DELETE FROM receivables WHERE id = :id")
+    suspend fun deleteReceivableById(id: Long)
 }

@@ -29,6 +29,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
@@ -48,11 +49,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.AccountEntity
 import com.example.data.model.GlobalFinancialSummary
 import com.example.data.model.PayableEntity
+import com.example.data.model.ProfitPartnerEntity
 import com.example.data.model.ProjectFinancialSummary
 import com.example.data.model.ReceivableEntity
+import com.example.data.model.TransactionEntity
 import com.example.data.model.formatRupiah
+import com.example.ui.screens.reports.ProfitShareTab
 import com.example.ui.theme.ColorExpense
 import com.example.ui.theme.ColorProfit
 import com.example.util.PrintHelper
@@ -63,10 +68,23 @@ fun ReportsScreen(
     projectSummaries: List<ProjectFinancialSummary>,
     receivables: List<ReceivableEntity>,
     payables: List<PayableEntity>,
+    profitPartners: List<ProfitPartnerEntity>,
+    allTransactions: List<TransactionEntity>,
+    accounts: List<AccountEntity>,
+    onCreatePartner: (name: String, percentage: Double, phone: String, notes: String) -> Unit,
+    onUpdatePartner: (id: Long, name: String, percentage: Double, phone: String, notes: String) -> Unit,
+    onDeletePartner: (id: Long) -> Unit,
+    onPayPayablesBatch: (payableIds: List<Long>, sourceAccountId: Long, date: String, method: String, notes: String) -> Unit,
+    onPayReceivablesBatch: (receivableIds: List<Long>, destinationAccountId: Long, date: String, method: String, notes: String) -> Unit,
+    onCreatePayable: (creditorName: String, type: String, description: String, totalAmount: Double, dueDate: String, destinationAccountId: Long) -> Unit,
+    onDeletePayable: (id: Long) -> Unit,
+    onCreateReceivable: (clientName: String, projectName: String, invoiceNumber: String, description: String, totalAmount: Double, dueDate: String, projectId: Long?) -> Unit,
+    onDeleteReceivable: (id: Long) -> Unit,
+    onReceiveProjectPayment: (projectId: Long, amount: Double, destinationAccountId: Long, date: String, method: String, notes: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: Laba Rugi Perusahaan, 1: Laba Rugi Per Proyek, 2: Piutang & Utang
+    var selectedTab by remember { mutableIntStateOf(0) } // 0: P&L Perusahaan, 1: Laba Rugi Proyek, 2: Pembagian Profit, 3: Utang & Piutang
 
     Column(
         modifier = modifier
@@ -81,17 +99,22 @@ fun ReportsScreen(
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("P&L Perusahaan", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("P&L Usaha", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
             )
             Tab(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                text = { Text("Laba Rugi Proyek", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("Laba Proyek", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
             )
             Tab(
                 selected = selectedTab == 2,
                 onClick = { selectedTab = 2 },
-                text = { Text("Utang / Piutang", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("Bagi Hasil", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
+            )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                text = { Text("Utang/Piutang", fontWeight = FontWeight.Bold, fontSize = 11.sp) }
             )
         }
 
@@ -100,7 +123,27 @@ fun ReportsScreen(
         when (selectedTab) {
             0 -> CompanyPnLTab(summary)
             1 -> ProjectPnLTab(projectSummaries)
-            2 -> PayablesReceivablesTab(receivables, payables)
+            2 -> ProfitShareTab(
+                projectSummaries = projectSummaries,
+                profitPartners = profitPartners,
+                allTransactions = allTransactions,
+                onCreatePartner = onCreatePartner,
+                onUpdatePartner = onUpdatePartner,
+                onDeletePartner = onDeletePartner
+            )
+            3 -> com.example.ui.screens.reports.PayablesReceivablesTab(
+                projectSummaries = projectSummaries,
+                receivables = receivables,
+                payables = payables,
+                accounts = accounts,
+                onPayPayablesBatch = onPayPayablesBatch,
+                onPayReceivablesBatch = onPayReceivablesBatch,
+                onCreatePayable = onCreatePayable,
+                onDeletePayable = onDeletePayable,
+                onCreateReceivable = onCreateReceivable,
+                onDeleteReceivable = onDeleteReceivable,
+                onReceiveProjectPayment = onReceiveProjectPayment
+            )
         }
     }
 }
@@ -147,7 +190,7 @@ fun CompanyPnLTab(summary: GlobalFinancialSummary) {
 
                             Spacer(modifier = Modifier.width(8.dp))
 
-                            Button(
+                            IconButton(
                                 onClick = {
                                     PrintHelper.printHtml(
                                         context = context,
@@ -155,16 +198,9 @@ fun CompanyPnLTab(summary: GlobalFinancialSummary) {
                                         htmlContent = PrintHelper.generateCompanyPnLHtml(summary)
                                     )
                                 },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                                modifier = Modifier.height(34.dp)
+                                modifier = Modifier.size(34.dp)
                             ) {
-                                Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Print PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Icon(Icons.Default.Print, contentDescription = "Print PDF", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
@@ -343,7 +379,7 @@ fun ProjectPnLTab(projectSummaries: List<ProjectFinancialSummary>) {
                 }
 
                 if (activeSummary != null) {
-                    Button(
+                    IconButton(
                         onClick = {
                             PrintHelper.printHtml(
                                 context = context,
@@ -351,16 +387,9 @@ fun ProjectPnLTab(projectSummaries: List<ProjectFinancialSummary>) {
                                 htmlContent = PrintHelper.generateProjectPnLHtml(activeSummary)
                             )
                         },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.height(52.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
-                        Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Print", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.Print, contentDescription = "Print PDF", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                     }
                 }
             }
@@ -439,86 +468,6 @@ fun ProjectPnLTab(projectSummaries: List<ProjectFinancialSummary>) {
                 }
             }
         }
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-fun PayablesReceivablesTab(
-    receivables: List<ReceivableEntity>,
-    payables: List<PayableEntity>
-) {
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            Text("PIUTANG TERMIN KLIENT BORE PILE", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-        }
-
-        if (receivables.isEmpty()) {
-            item {
-                Text("Tidak ada piutang klien tercatat.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            items(receivables.size) { idx ->
-                val rec = receivables[idx]
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(rec.invoiceNumber, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                            Text(rec.status, fontWeight = FontWeight.Bold, color = if (rec.status == "PAID") ColorProfit else ColorExpense)
-                        }
-                        Text("${rec.clientName} • ${rec.projectName}", style = MaterialTheme.typography.bodySmall)
-                        Text(rec.description, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Total: ${formatRupiah(rec.totalAmount)}", style = MaterialTheme.typography.bodySmall)
-                            Text("Sisa: ${formatRupiah(rec.remainingAmount)}", fontWeight = FontWeight.Bold, color = ColorProfit)
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(10.dp))
-            Text("UTANG USAHA & SUPPLIER", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-        }
-
-        if (payables.isEmpty()) {
-            item {
-                Text("Tidak ada utang usaha tercatat.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            items(payables.size) { idx ->
-                val pay = payables[idx]
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(pay.creditorName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                            Text(pay.status, fontWeight = FontWeight.Bold, color = if (pay.status == "PAID") ColorProfit else ColorExpense)
-                        }
-                        Text(pay.description, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Total: ${formatRupiah(pay.totalAmount)}", style = MaterialTheme.typography.bodySmall)
-                            Text("Sisa: ${formatRupiah(pay.remainingAmount)}", fontWeight = FontWeight.Bold, color = ColorExpense)
-                        }
-                    }
-                }
-            }
-        }
-
         item {
             Spacer(modifier = Modifier.height(16.dp))
         }

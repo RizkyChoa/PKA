@@ -71,14 +71,18 @@ fun WorkerJobDialog(
     var jobName by remember { mutableStateOf(initialJob?.jobName ?: "") }
     var pointCountStr by remember { mutableStateOf(initialJob?.pointCount?.toString() ?: "") }
     var depthMetersStr by remember { mutableStateOf(initialJob?.depthMeters?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "") }
-    var unitPriceStr by remember { mutableStateOf(initialJob?.unitPricePerMeter?.toLong()?.toString() ?: "") }
+    var unitPriceStr by remember {
+        mutableStateOf(
+            initialJob?.unitPricePerMeter?.toLong()?.let { com.example.util.CurrencyFormatter.formatInput(it.toString()) } ?: ""
+        )
+    }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val isEditMode = initialJob != null
 
     val pointCount = pointCountStr.toIntOrNull() ?: 0
     val depthMeters = depthMetersStr.toDoubleOrNull() ?: 0.0
-    val unitPrice = unitPriceStr.toDoubleOrNull() ?: 0.0
+    val unitPrice = com.example.util.CurrencyFormatter.parseInput(unitPriceStr)
 
     val calculatedVolume = pointCount * depthMeters
     val calculatedSubtotal = calculatedVolume * unitPrice
@@ -235,9 +239,9 @@ fun WorkerJobDialog(
                 // Harga Satuan per Meter
                 OutlinedTextField(
                     value = unitPriceStr,
-                    onValueChange = { unitPriceStr = it.filter { ch -> ch.isDigit() }; errorMessage = null },
+                    onValueChange = { unitPriceStr = com.example.util.CurrencyFormatter.formatInput(it); errorMessage = null },
                     label = { Text("Harga Satuan per Meter (Rp) *") },
-                    placeholder = { Text("40000") },
+                    placeholder = { Text("40.000") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("job_unit_price_input"),

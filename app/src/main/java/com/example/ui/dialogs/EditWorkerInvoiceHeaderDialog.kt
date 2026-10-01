@@ -102,7 +102,7 @@ fun EditWorkerInvoiceHeaderDialog(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Ubah Data Invoice",
+                                text = "Edit Invoice",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )

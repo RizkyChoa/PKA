@@ -78,29 +78,41 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-data class TempJobItem(
-    var jobName: String = "",
-    var pointCountText: String = "",
-    var depthText: String = "",
-    var unitPriceText: String = ""
+class TempJobItem(
+    jobName: String = "",
+    pointCountText: String = "",
+    depthText: String = "",
+    unitPriceText: String = ""
 ) {
+    var jobName by mutableStateOf(jobName)
+    var pointCountText by mutableStateOf(pointCountText)
+    var depthText by mutableStateOf(depthText)
+    var unitPriceText by mutableStateOf(unitPriceText)
+
     val pointCount: Int get() = pointCountText.toIntOrNull() ?: 0
     val depth: Double get() = depthText.toDoubleOrNull() ?: 0.0
     val volume: Double get() = pointCount * depth
-    val unitPrice: Double get() = unitPriceText.toDoubleOrNull() ?: 0.0
+    val unitPrice: Double get() = com.example.util.CurrencyFormatter.parseInput(unitPriceText)
     val subtotal: Double get() = volume * unitPrice
 }
 
-data class TempLoanItem(
-    var date: String = "",
-    var description: String = "",
-    var trxType: String = "TRANSFER", // TRANSFER / CASH
-    var amountText: String = "",
-    var deductionDesc: String = "",
-    var deductionAmountText: String = ""
+class TempLoanItem(
+    date: String = "",
+    description: String = "",
+    trxType: String = "TRANSFER",
+    amountText: String = "",
+    deductionDesc: String = "",
+    deductionAmountText: String = ""
 ) {
-    val amount: Double get() = amountText.toDoubleOrNull() ?: 0.0
-    val deductionAmount: Double get() = deductionAmountText.toDoubleOrNull() ?: 0.0
+    var date by mutableStateOf(date)
+    var description by mutableStateOf(description)
+    var trxType by mutableStateOf(trxType)
+    var amountText by mutableStateOf(amountText)
+    var deductionDesc by mutableStateOf(deductionDesc)
+    var deductionAmountText by mutableStateOf(deductionAmountText)
+
+    val amount: Double get() = com.example.util.CurrencyFormatter.parseInput(amountText)
+    val deductionAmount: Double get() = com.example.util.CurrencyFormatter.parseInput(deductionAmountText)
     val netLoan: Double get() = (amount - deductionAmount).coerceAtLeast(0.0)
 }
 
@@ -129,30 +141,21 @@ fun AddWorkerInvoiceDialog(
     var notes by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Job Items
+    // Job Items - starts ready for user input
     val jobList = remember {
         mutableStateListOf(
             TempJobItem(
                 jobName = "Bore Pile D-60",
-                pointCountText = "50",
-                depthText = "24",
-                unitPriceText = "40000"
+                pointCountText = "",
+                depthText = "",
+                unitPriceText = ""
             )
         )
     }
 
-    // Loan Items (Kasbon)
+    // Loan Items (Kasbon) - clean empty list
     val loanList = remember {
-        mutableStateListOf(
-            TempLoanItem(
-                date = todayStr,
-                description = "Uang saku / DP tim",
-                trxType = "TRANSFER",
-                amountText = "5000000",
-                deductionDesc = "ongkos keberangkatan",
-                deductionAmountText = "1500000"
-            )
-        )
+        mutableStateListOf<TempLoanItem>()
     }
 
     val totalEarnings = jobList.sumOf { it.subtotal }
@@ -536,9 +539,9 @@ fun AddWorkerInvoiceDialog(
 
                                         OutlinedTextField(
                                             value = job.unitPriceText,
-                                            onValueChange = { job.unitPriceText = it.filter { c -> c.isDigit() } },
+                                            onValueChange = { job.unitPriceText = com.example.util.CurrencyFormatter.formatInput(it) },
                                             label = { Text("Harga/m (Rp)") },
-                                            placeholder = { Text("40000") },
+                                            placeholder = { Text("40.000") },
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                             modifier = Modifier.weight(1.5f),
                                             singleLine = true
@@ -670,7 +673,7 @@ fun AddWorkerInvoiceDialog(
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             OutlinedTextField(
                                                 value = loan.date,
-                                                onValueChange = { loan.date = it },
+                                                onValueChange = { loan.date = com.example.util.CurrencyFormatter.formatDateInput(it) },
                                                 label = { Text("Tgl Kasbon") },
                                                 placeholder = { Text("YYYY-MM-DD") },
                                                 modifier = Modifier.weight(1f),
@@ -679,9 +682,9 @@ fun AddWorkerInvoiceDialog(
 
                                             OutlinedTextField(
                                                 value = loan.amountText,
-                                                onValueChange = { loan.amountText = it.filter { c -> c.isDigit() } },
+                                                onValueChange = { loan.amountText = com.example.util.CurrencyFormatter.formatInput(it) },
                                                 label = { Text("Nominal Kasbon (Rp)") },
-                                                placeholder = { Text("5000000") },
+                                                placeholder = { Text("5.000.000") },
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                                 modifier = Modifier.weight(1.3f),
                                                 singleLine = true
@@ -713,9 +716,9 @@ fun AddWorkerInvoiceDialog(
 
                                             OutlinedTextField(
                                                 value = loan.deductionAmountText,
-                                                onValueChange = { loan.deductionAmountText = it.filter { c -> c.isDigit() } },
+                                                onValueChange = { loan.deductionAmountText = com.example.util.CurrencyFormatter.formatInput(it) },
                                                 label = { Text("Potongan (Rp)") },
-                                                placeholder = { Text("1500000") },
+                                                placeholder = { Text("1.500.000") },
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                                 modifier = Modifier.weight(1f),
                                                 singleLine = true

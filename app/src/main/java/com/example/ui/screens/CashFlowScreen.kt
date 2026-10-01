@@ -31,6 +31,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -118,8 +119,11 @@ fun CashFlowScreen(
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
                             onClick = {
                                 PrintHelper.printHtml(
                                     context = context,
@@ -127,24 +131,19 @@ fun CashFlowScreen(
                                     htmlContent = PrintHelper.generateCashFlowHtml(summary, dailySummaries)
                                 )
                             },
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
+                            modifier = Modifier.size(38.dp)
                         ) {
-                            Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Print", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Print, contentDescription = "Print PDF", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         }
 
                         Button(
                             onClick = onOpenAddTransaction,
-                            shape = RoundedCornerShape(10.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.height(36.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Catat Kas", fontSize = 12.sp)
+                            Icon(Icons.Default.Add, contentDescription = "Catat Kas", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }

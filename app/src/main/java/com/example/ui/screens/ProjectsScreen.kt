@@ -137,9 +137,9 @@ fun ProjectsScreen(
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.testTag("add_project_fab")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Proyek", fontSize = 12.sp)
+                Icon(Icons.Default.Add, contentDescription = "Tambah Proyek", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
 

@@ -18,12 +18,14 @@ data class TransactionEntity(
     val destinationAccountName: String? = null,
     val categoryId: Long,
     val categoryName: String,
-    val classification: String, // "PROJECT", "OPERATIONAL", "DEBT", "RECEIVABLE", "EQUITY", "ASSET", "INTERNAL_TRANSFER"
+    val classification: String, // "PROJECT", "OPERATIONAL", "DEBT", "RECEIVABLE", "EQUITY", "ASSET", "INTERNAL_TRANSFER", "PENGAMBILAN_PROFIT"
     val projectId: Long? = null,
     val projectName: String? = null,
-    val costGroup: String = "", // "MATERIAL", "LABOR", "MOBILIZATION", "FUEL", "EQUIPMENT", "MAINTENANCE", "OTHER"
+    val costGroup: String = "", // "MATERIAL", "LABOR_MANDOR", "LABOR_WORKER", "CONSUMPTION", "MOBILIZATION", "FUEL", "EQUIPMENT", "MAINTENANCE", "OTHER"
     val receivableId: Long? = null,
     val payableId: Long? = null,
+    val profitPartnerId: Long? = null,
+    val profitPartnerName: String? = null,
     val status: String = "VALID", // "VALID", "VOID"
     val voidReason: String = "",
     val createdBy: String = "Admin",

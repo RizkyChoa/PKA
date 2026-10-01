@@ -128,7 +128,7 @@ fun TransactionsScreen(
                 shape = RoundedCornerShape(12.dp)
             )
 
-            Button(
+            IconButton(
                 onClick = {
                     PrintHelper.printHtml(
                         context = context,
@@ -136,26 +136,23 @@ fun TransactionsScreen(
                         htmlContent = PrintHelper.generateTransactionsHtml(filteredTransactions)
                     )
                 },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                ),
-                modifier = Modifier.testTag("trx_print_button")
+                modifier = Modifier
+                    .size(42.dp)
+                    .testTag("trx_print_button")
             ) {
-                Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Print", fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Print, contentDescription = "Print PDF", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
             }
 
             Button(
                 onClick = onOpenAddTransaction,
                 shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.testTag("trx_add_button")
+                modifier = Modifier
+                    .height(42.dp)
+                    .testTag("trx_add_button")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Input")
+                Icon(Icons.Default.Add, contentDescription = "Tambah Transaksi", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
 

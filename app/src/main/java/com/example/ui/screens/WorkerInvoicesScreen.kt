@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Construction
@@ -115,16 +117,16 @@ fun WorkerInvoicesScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Pembukuan Invoice Pekerja",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "Invoice Pekerja",
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "Kelola borongan tiang, kasbon berkala, & cetak SPK",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Borongan tiang & kasbon berkala",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -132,11 +134,13 @@ fun WorkerInvoicesScreen(
             Button(
                 onClick = onOpenAddInvoice,
                 shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.testTag("add_worker_invoice_btn")
+                modifier = Modifier
+                    .height(36.dp)
+                    .testTag("add_worker_invoice_btn")
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Buat Invoice", fontSize = 12.sp)
+                Icon(Icons.Default.Add, contentDescription = "Tambah Invoice", modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(2.dp))
+                Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -155,8 +159,13 @@ fun WorkerInvoicesScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(onClick = onOpenAddInvoice) {
-                        Text("+ Buat Invoice Pekerja Pertama")
+                    Button(
+                        onClick = onOpenAddInvoice,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Tambah Invoice", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("+", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -412,158 +421,169 @@ fun WorkerInvoiceCard(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Header: Invoice No, Status, Print & Edit Actions
+        Column(modifier = Modifier.padding(10.dp)) {
+            // Header: Invoice No, Role, Status, and Action Icons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = inv.invoiceNumber,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
-                        ) {
-                            Text(
-                                text = if (inv.workerRole == "MANDOR") "MANDOR" else "PEKERJA",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = if (inv.status == "LUNAS") ColorProfit.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer
-                        ) {
-                            Text(
-                                text = inv.status,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (inv.status == "LUNAS") ColorProfit else MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "Tanggal: ${inv.date}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = inv.invoiceNumber,
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = if (inv.workerRole == "MANDOR") "MANDOR" else "PEKERJA",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (inv.workerRole == "MANDOR") MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (inv.status == "LUNAS") ColorProfit.copy(alpha = 0.15f) else MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Text(
+                            text = inv.status,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (inv.status == "LUNAS") ColorProfit else MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                        )
+                    }
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Tombol Edit Data Header Invoice
+                    // Action: Edit (Logo Only)
                     IconButton(
                         onClick = onEditHeader,
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(30.dp)
                             .testTag("edit_header_invoice_${inv.id}")
                     ) {
                         Icon(
                             Icons.Default.Edit,
-                            contentDescription = "Edit Data Invoice",
+                            contentDescription = "Edit",
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(4.dp))
-
-                    // Action: Cetak / Print PDF
-                    Button(
+                    // Action: Cetak Print / PDF (Logo Only)
+                    IconButton(
                         onClick = onPrint,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                        ),
-                        modifier = Modifier.testTag("print_invoice_${inv.id}")
+                        modifier = Modifier
+                            .size(30.dp)
+                            .testTag("print_invoice_${inv.id}")
                     ) {
-                        Icon(Icons.Default.Print, contentDescription = "Cetak PDF", modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Print / PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            Icons.Default.Print,
+                            contentDescription = "Print PDF",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+
+                    // Action: Hapus (Logo Only)
+                    IconButton(
+                        onClick = onDeleteInvoice,
+                        modifier = Modifier
+                            .size(30.dp)
+                            .testTag("delete_invoice_${inv.id}")
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Hapus",
+                            tint = ColorExpense,
+                            modifier = Modifier.size(17.dp)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // Project & Mandor Info
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Construction, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
+            // Project & Mandor Info + Date in one compact line
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
-                    text = inv.projectName,
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "${if (inv.workerRole == "MANDOR") "Mandor Lapangan" else "Tim Pekerja"}: ${inv.workerLeaderName}",
+                    text = "${inv.projectName} • ${inv.workerLeaderName}",
+                    fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
-            }
-
-            if (inv.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Catatan: ${inv.notes}",
+                    text = inv.date,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = DividerDefaults.color.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.height(10.dp))
+            if (inv.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Catatan: ${inv.notes}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
-            // Financial Summary Preview Banner
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Compact Financial Summary Bar
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column {
-                    Text("Total Penghasilan", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatRupiah(item.totalEarnings), fontWeight = FontWeight.Bold, color = ColorProfit)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Total Kasbon", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(formatRupiah(item.totalLoans), fontWeight = FontWeight.Bold, color = ColorExpense)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("Sisa Bersih Diterima", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(
-                        formatRupiah(item.remainingBalance),
-                        fontWeight = FontWeight.ExtraBold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Penghasilan", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRupiah(item.totalEarnings), fontWeight = FontWeight.Bold, color = ColorProfit, fontSize = 12.sp)
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Kasbon", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRupiah(item.totalLoans), fontWeight = FontWeight.Bold, color = ColorExpense, fontSize = 12.sp)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Sisa Bersih", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(formatRupiah(item.remainingBalance), fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.primary, fontSize = 13.sp)
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             // Expand / Collapse Details Button
             Row(
@@ -575,8 +595,8 @@ fun WorkerInvoiceCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (expanded) "Sembunyikan Rincian" else "Kelola Rincian Tiang & Kasbon (${item.jobItems.size} Pekerjaan, ${item.loanItems.size} Kasbon)",
-                    style = MaterialTheme.typography.labelMedium,
+                    text = if (expanded) "Tutup Rincian" else "Rincian (${item.jobItems.size} Pekerjaan, ${item.loanItems.size} Kasbon)",
+                    style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -584,12 +604,12 @@ fun WorkerInvoiceCard(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 10.dp)) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
                     // ==========================================
                     // A. DETAIL PEKERJAAN (BORONGAN BORE PILE)
                     // ==========================================
@@ -599,66 +619,44 @@ fun WorkerInvoiceCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "A. RINCIAN HASIL PEKERJAAN BORE PILE:",
+                            text = "A. HASIL PEKERJAAN TIANG (${item.jobItems.size})",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium
                         )
 
-                        // Tombol Tambah Pekerjaan
+                        // Tombol Tambah Pekerjaan (+)
                         Button(
                             onClick = onAddJob,
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            ),
-                            modifier = Modifier.testTag("add_job_btn_${inv.id}")
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier
+                                .height(28.dp)
+                                .testTag("add_job_btn_${inv.id}")
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("+ Tambah Pekerjaan", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Add, contentDescription = "Tambah Pekerjaan", modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     if (item.jobItems.isEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "Belum ada item pekerjaan bore pile tercatat.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                OutlinedButton(
-                                    onClick = onAddJob,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("+ Tambah Pekerjaan Pertama", fontSize = 11.sp)
-                                }
-                            }
-                        }
+                        Text(
+                            text = "Belum ada item pekerjaan. Ketuk tombol '+' di atas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     } else {
                         item.jobItems.forEachIndexed { i, job ->
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
+                                    .padding(vertical = 2.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    // Row 1: Judul Pekerjaan & Action Buttons (Edit / Delete)
+                                Column(modifier = Modifier.padding(8.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -667,45 +665,41 @@ fun WorkerInvoiceCard(
                                         Text(
                                             text = "${i + 1}. ${job.jobName}",
                                             fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = MaterialTheme.typography.bodySmall,
                                             modifier = Modifier.weight(1f)
                                         )
 
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            // Edit Button
                                             IconButton(
                                                 onClick = { onEditJob(job) },
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(24.dp)
                                                     .testTag("edit_job_${job.id}")
                                             ) {
                                                 Icon(
                                                     Icons.Default.Edit,
-                                                    contentDescription = "Edit Pekerjaan",
+                                                    contentDescription = "Edit",
                                                     tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                             }
 
-                                            // Delete Button
                                             IconButton(
                                                 onClick = { onDeleteJob(job) },
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(24.dp)
                                                     .testTag("delete_job_${job.id}")
                                             ) {
                                                 Icon(
                                                     Icons.Default.Delete,
-                                                    contentDescription = "Hapus Pekerjaan",
+                                                    contentDescription = "Hapus",
                                                     tint = ColorExpense,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                             }
                                         }
                                     }
 
-                                    // Row 2: Perhitungan titik x kedalaman = volume (@harga) & subtotal
-                                    Spacer(modifier = Modifier.height(2.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -713,13 +707,13 @@ fun WorkerInvoiceCard(
                                     ) {
                                         Text(
                                             text = "${job.pointCount} titik × ${job.depthMeters} m = ${job.volumeMeters} m' (@${formatRupiah(job.unitPricePerMeter)})",
-                                            style = MaterialTheme.typography.bodySmall,
+                                            style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         Text(
                                             text = formatRupiah(job.subtotal),
                                             fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyMedium,
+                                            style = MaterialTheme.typography.bodySmall,
                                             color = ColorProfit
                                         )
                                     }
@@ -728,7 +722,7 @@ fun WorkerInvoiceCard(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // ==========================================
                     // B. DETAIL KASBON / PINJAMAN PEKERJA
@@ -739,12 +733,12 @@ fun WorkerInvoiceCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "B. RINCIAN KASBON / PINJAMAN PEKERJA:",
+                            text = "B. KASBON / PINJAMAN (${item.loanItems.size})",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.labelMedium
                         )
 
-                        // Tombol Tambah Kasbon Berkala
+                        // Tombol Tambah Kasbon (+)
                         Button(
                             onClick = onAddLoan,
                             shape = RoundedCornerShape(8.dp),
@@ -752,54 +746,36 @@ fun WorkerInvoiceCard(
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer
                             ),
-                            modifier = Modifier.testTag("add_loan_btn_${inv.id}")
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            modifier = Modifier
+                                .height(28.dp)
+                                .testTag("add_loan_btn_${inv.id}")
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("+ Tambah Kasbon", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Default.Add, contentDescription = "Tambah Kasbon", modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text("+", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     if (item.loanItems.isEmpty()) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "Belum ada kasbon / pinjaman tercatat untuk invoice ini.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                OutlinedButton(
-                                    onClick = onAddLoan,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("+ Catat Kasbon Pertama", fontSize = 11.sp)
-                                }
-                            }
-                        }
+                        Text(
+                            text = "Belum ada kasbon tercatat. Ketuk tombol '+' di atas.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
                     } else {
                         item.loanItems.forEachIndexed { i, loan ->
                             val netLoan = loan.amount - loan.deductionAmount
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
+                                    .padding(vertical = 2.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
                             ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    // Row 1: Date, TrxType, Net Amount & Action Buttons (Edit / Delete)
+                                Column(modifier = Modifier.padding(8.dp)) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -809,25 +785,14 @@ fun WorkerInvoiceCard(
                                             Text(
                                                 text = "${i + 1}. ${loan.date}",
                                                 fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.labelMedium
+                                                style = MaterialTheme.typography.labelSmall
                                             )
-                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
                                             Surface(
                                                 shape = RoundedCornerShape(4.dp),
                                                 color = if (loan.trxType == "TRANSFER") MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.tertiaryContainer
                                             ) {
-                                                Row(
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Icon(
-                                                        imageVector = if (loan.trxType == "TRANSFER") Icons.Default.CreditCard else Icons.Default.Payments,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(11.dp)
-                                                    )
-                                                    Spacer(modifier = Modifier.width(2.dp))
-                                                    Text(loan.trxType, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
+                                                Text(loan.trxType, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp))
                                             }
                                         }
 
@@ -835,51 +800,46 @@ fun WorkerInvoiceCard(
                                             Text(
                                                 text = formatRupiah(netLoan),
                                                 fontWeight = FontWeight.Bold,
-                                                style = MaterialTheme.typography.bodyMedium,
+                                                style = MaterialTheme.typography.bodySmall,
                                                 color = ColorExpense
                                             )
 
                                             Spacer(modifier = Modifier.width(4.dp))
 
-                                            // Edit Button
                                             IconButton(
                                                 onClick = { onEditLoan(loan) },
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(24.dp)
                                                     .testTag("edit_loan_${loan.id}")
                                             ) {
                                                 Icon(
                                                     Icons.Default.Edit,
-                                                    contentDescription = "Edit Kasbon",
+                                                    contentDescription = "Edit",
                                                     tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                             }
 
-                                            // Delete Button
                                             IconButton(
                                                 onClick = { onDeleteLoan(loan) },
                                                 modifier = Modifier
-                                                    .size(28.dp)
+                                                    .size(24.dp)
                                                     .testTag("delete_loan_${loan.id}")
                                             ) {
                                                 Icon(
                                                     Icons.Default.Delete,
-                                                    contentDescription = "Hapus Kasbon",
+                                                    contentDescription = "Hapus",
                                                     tint = ColorExpense,
-                                                    modifier = Modifier.size(16.dp)
+                                                    modifier = Modifier.size(14.dp)
                                                 )
                                             }
                                         }
                                     }
 
-                                    // Row 2: Description
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    Text(loan.description, style = MaterialTheme.typography.bodySmall)
+                                    Text(loan.description, style = MaterialTheme.typography.labelSmall)
 
-                                    // Row 3: Deduction info if applicable
                                     if (loan.deductionAmount > 0) {
-                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
                                             "Nominal: ${formatRupiah(loan.amount)} - Potongan: ${formatRupiah(loan.deductionAmount)} (${loan.deductionDescription})",
                                             style = MaterialTheme.typography.labelSmall,
@@ -888,93 +848,6 @@ fun WorkerInvoiceCard(
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // ==========================================
-                    // RINGKASAN AKHIR PERHITUNGAN INVOICE
-                    // ==========================================
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Total Borongan:", style = MaterialTheme.typography.bodySmall)
-                                Text(formatRupiah(item.totalEarnings), fontWeight = FontWeight.Bold, color = ColorProfit, style = MaterialTheme.typography.bodySmall)
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Total Kasbon / Pinjaman:", style = MaterialTheme.typography.bodySmall)
-                                Text("-${formatRupiah(item.totalLoans)}", fontWeight = FontWeight.Bold, color = ColorExpense, style = MaterialTheme.typography.bodySmall)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            HorizontalDivider(color = DividerDefaults.color)
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("SISA HASIL BERSIH:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    formatRupiah(item.remainingBalance),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Bottom Action Buttons: Edit Header, Delete Invoice, Print PDF
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = onEditHeader,
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Ubah Data", fontSize = 11.sp)
-                            }
-
-                            OutlinedButton(
-                                onClick = onDeleteInvoice,
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Icon(Icons.Default.Delete, contentDescription = null, tint = ColorExpense, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Hapus", color = ColorExpense, fontSize = 11.sp)
-                            }
-                        }
-
-                        Button(
-                            onClick = onPrint,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
-                        ) {
-                            Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Cetak / Print PDF", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
