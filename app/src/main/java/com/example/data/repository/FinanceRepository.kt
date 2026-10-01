@@ -1,5 +1,6 @@
 package com.example.data.repository
 
+import androidx.room.withTransaction
 import com.example.data.db.AppDatabase
 import com.example.data.model.AccountEntity
 import com.example.data.model.AuditLogEntity
@@ -74,46 +75,96 @@ class FinanceRepository(private val db: AppDatabase) {
     }
 
     suspend fun updateTransaction(newTrx: TransactionEntity) = withContext(Dispatchers.IO) {
-        val oldTrx = db.transactionDao().getTransactionById(newTrx.id) ?: return@withContext
-        if (oldTrx.status == "VALID") {
-            // Revert old effect
-            when (oldTrx.type) {
-                "MONEY_IN" -> db.accountDao().adjustBalance(oldTrx.sourceAccountId, -oldTrx.amount)
-                "MONEY_OUT" -> db.accountDao().adjustBalance(oldTrx.sourceAccountId, oldTrx.amount)
-                "TRANSFER" -> {
-                    db.accountDao().adjustBalance(oldTrx.sourceAccountId, oldTrx.amount)
-                    oldTrx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -oldTrx.amount) }
-                }
+        db.withTransaction {
+            val oldTrx = db.transactionDao().getTransactionById(newTrx.id) ?: return@withTransaction
+
+            // Reverse the old cash effect and linked settlement.
+            if (oldTrx.status == "VALID") {
+                reverseCashEffect(oldTrx)
+                reverseSettlement(oldTrx)
+            }
+
+            // Apply the new cash effect and linked settlement.
+            if (newTrx.status == "VALID") {
+                applyCashEffect(newTrx)
+                applySettlement(newTrx)
+            }
+
+            db.transactionDao().updateTransaction(newTrx)
+        }
+    }
+
+    private suspend fun reverseCashEffect(trx: TransactionEntity) {
+        when (trx.type) {
+            "MONEY_IN" -> db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
+            "MONEY_OUT" -> db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+            "TRANSFER" -> {
+                db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+                trx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -trx.amount) }
             }
         }
-        if (newTrx.status == "VALID") {
-            // Apply new effect
-            when (newTrx.type) {
-                "MONEY_IN" -> db.accountDao().adjustBalance(newTrx.sourceAccountId, newTrx.amount)
-                "MONEY_OUT" -> db.accountDao().adjustBalance(newTrx.sourceAccountId, -newTrx.amount)
-                "TRANSFER" -> {
-                    db.accountDao().adjustBalance(newTrx.sourceAccountId, -newTrx.amount)
-                    newTrx.destinationAccountId?.let { db.accountDao().adjustBalance(it, newTrx.amount) }
-                }
+    }
+
+    private suspend fun applyCashEffect(trx: TransactionEntity) {
+        when (trx.type) {
+            "MONEY_IN" -> db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+            "MONEY_OUT" -> db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
+            "TRANSFER" -> {
+                db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
+                trx.destinationAccountId?.let { db.accountDao().adjustBalance(it, trx.amount) }
             }
         }
-        db.transactionDao().updateTransaction(newTrx)
+    }
+
+    private suspend fun reverseSettlement(trx: TransactionEntity) {
+        if (trx.receivableId != null && trx.type == "MONEY_IN") {
+            val rec = db.receivableDao().getReceivableById(trx.receivableId) ?: return
+            val paid = (rec.paidAmount - trx.amount).coerceAtLeast(0.0)
+            val status = when {
+                paid <= 0.0 -> "UNPAID"
+                paid >= rec.totalAmount -> "PAID"
+                else -> "PARTIAL"
+            }
+            db.receivableDao().updateReceivable(rec.copy(paidAmount = paid, status = status))
+        }
+
+        if (trx.payableId != null && trx.type == "MONEY_OUT") {
+            val pay = db.payableDao().getPayableById(trx.payableId) ?: return
+            val paid = (pay.paidAmount - trx.amount).coerceAtLeast(0.0)
+            val status = when {
+                paid <= 0.0 -> "UNPAID"
+                paid >= pay.totalAmount -> "PAID"
+                else -> "PARTIAL"
+            }
+            db.payableDao().updatePayable(pay.copy(paidAmount = paid, status = status))
+        }
+    }
+
+    private suspend fun applySettlement(trx: TransactionEntity) {
+        if (trx.receivableId != null && trx.type == "MONEY_IN") {
+            val rec = db.receivableDao().getReceivableById(trx.receivableId) ?: return
+            val paid = rec.paidAmount + trx.amount
+            val status = if (paid >= rec.totalAmount) "PAID" else "PARTIAL"
+            db.receivableDao().updateReceivable(rec.copy(paidAmount = paid, status = status))
+        }
+
+        if (trx.payableId != null && trx.type == "MONEY_OUT") {
+            val pay = db.payableDao().getPayableById(trx.payableId) ?: return
+            val paid = pay.paidAmount + trx.amount
+            val status = if (paid >= pay.totalAmount) "PAID" else "PARTIAL"
+            db.payableDao().updatePayable(pay.copy(paidAmount = paid, status = status))
+        }
     }
 
     suspend fun deleteTransaction(transactionId: Long) = withContext(Dispatchers.IO) {
-        val trx = db.transactionDao().getTransactionById(transactionId) ?: return@withContext
-        if (trx.status == "VALID") {
-            // Revert effect on account
-            when (trx.type) {
-                "MONEY_IN" -> db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
-                "MONEY_OUT" -> db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
-                "TRANSFER" -> {
-                    db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
-                    trx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -trx.amount) }
-                }
+        db.withTransaction {
+            val trx = db.transactionDao().getTransactionById(transactionId) ?: return@withTransaction
+            if (trx.status == "VALID") {
+                reverseCashEffect(trx)
+                reverseSettlement(trx)
             }
+            db.transactionDao().deleteTransactionById(transactionId)
         }
-        db.transactionDao().deleteTransactionById(transactionId)
     }
 
     suspend fun clearAllData() = withContext(Dispatchers.IO) {
@@ -141,7 +192,8 @@ class FinanceRepository(private val db: AppDatabase) {
         profitPartnerName: String? = null,
         costGroup: String = ""
     ): Long = withContext(Dispatchers.IO) {
-        val count = db.transactionDao().getTransactionCount() + 1
+        db.withTransaction {
+            val count = db.transactionDao().getTransactionCount() + 1
         val dateCompact = date.replace("-", "")
         val trxNumber = "TRX-$dateCompact-${String.format(Locale.US, "%04d", count)}"
 
@@ -203,7 +255,9 @@ class FinanceRepository(private val db: AppDatabase) {
             destinationAccountId = destinationAccountId,
             destinationAccountName = destinationAccountName,
             categoryId = categoryId,
-            categoryName = description.takeIf { it.isNotBlank() } ?: "Transaksi",
+            categoryName = db.categoryDao().getAllCategoriesSnapshot()
+                .firstOrNull { it.id == categoryId }?.name
+                ?: "Transaksi",
             classification = classification,
             projectId = projectId,
             projectName = projectName,
@@ -227,6 +281,7 @@ class FinanceRepository(private val db: AppDatabase) {
         )
 
         insertedId
+        }
     }
 
     suspend fun payPayablesBatch(
@@ -306,44 +361,13 @@ class FinanceRepository(private val db: AppDatabase) {
     }
 
     suspend fun voidTransaction(id: Long, reason: String) = withContext(Dispatchers.IO) {
-        val trx = db.transactionDao().getTransactionById(id) ?: return@withContext
-        if (trx.status == "VOID") return@withContext
+        db.withTransaction {
+            val trx = db.transactionDao().getTransactionById(id) ?: return@withTransaction
+            if (trx.status == "VOID") return@withTransaction
 
-        // Revert Balances
-        when (trx.type) {
-            "MONEY_IN" -> {
-                db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
-            }
-            "MONEY_OUT" -> {
-                db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
-            }
-            "TRANSFER" -> {
-                db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
-                trx.destinationAccountId?.let { db.accountDao().adjustBalance(it, -trx.amount) }
-            }
-        }
-
-        // Revert Receivable if linked
-        if (trx.receivableId != null && trx.type == "MONEY_IN") {
-            val rec = db.receivableDao().getReceivableById(trx.receivableId)
-            if (rec != null) {
-                val newPaid = (rec.paidAmount - trx.amount).coerceAtLeast(0.0)
-                val newStatus = if (newPaid == 0.0) "UNPAID" else if (newPaid >= rec.totalAmount) "PAID" else "PARTIAL"
-                db.receivableDao().updateReceivable(rec.copy(paidAmount = newPaid, status = newStatus))
-            }
-        }
-
-        // Revert Payable if linked
-        if (trx.payableId != null && trx.type == "MONEY_OUT") {
-            val pay = db.payableDao().getPayableById(trx.payableId)
-            if (pay != null) {
-                val newPaid = (pay.paidAmount - trx.amount).coerceAtLeast(0.0)
-                val newStatus = if (newPaid == 0.0) "UNPAID" else if (newPaid >= pay.totalAmount) "PAID" else "PARTIAL"
-                db.payableDao().updatePayable(pay.copy(paidAmount = newPaid, status = newStatus))
-            }
-        }
-
-        db.transactionDao().voidTransaction(id, reason)
+            reverseCashEffect(trx)
+            reverseSettlement(trx)
+            db.transactionDao().voidTransaction(id, reason)
 
         db.auditLogDao().insertLog(
             AuditLogEntity(
@@ -352,7 +376,8 @@ class FinanceRepository(private val db: AppDatabase) {
                 action = "VOID",
                 details = "Dibatalkan (VOID) karena: $reason"
             )
-        )
+        }
+        }
     }
 
     suspend fun insertReceivable(receivable: ReceivableEntity): Long = withContext(Dispatchers.IO) {
@@ -514,3 +539,4 @@ class FinanceRepository(private val db: AppDatabase) {
         }
     }
 }
+
