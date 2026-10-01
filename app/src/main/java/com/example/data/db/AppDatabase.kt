@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.model.AccountEntity
 import com.example.data.model.AuditLogEntity
 import com.example.data.model.CategoryEntity
@@ -45,6 +47,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun profitPartnerDao(): ProfitPartnerDao
 
     companion object {
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Schema is unchanged in v7; this migration preserves existing data.
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -54,7 +62,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "bore_pile_finance.db"
-                ).build()
+                )
+                    .addMigrations(MIGRATION_6_7)
+                    .build()
                 INSTANCE = instance
                 instance
             }
