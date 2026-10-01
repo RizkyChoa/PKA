@@ -30,7 +30,7 @@ import com.example.data.model.WorkerLoanItemEntity
         WorkerLoanItemEntity::class,
         ProfitPartnerEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,7 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "bore_pile_finance.db"
-                ).fallbackToDestructiveMigration().build()
+                ).build()
                 INSTANCE = instance
                 instance
             }
