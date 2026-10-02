@@ -6,7 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "audit_logs")
 data class AuditLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val transactionId: Long,
+    val transactionId: Long = 0L,
     val trxNumber: String,
     val action: String, // "CREATE", "UPDATE", "VOID"
     val details: String,

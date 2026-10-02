@@ -57,6 +57,7 @@ fun SettingsDialog(
     onDismiss: () -> Unit,
     onOpenManageAccounts: () -> Unit,
     onOpenBackupSync: () -> Unit,
+    onOpenBookPeriods: () -> Unit = {},
     onResetAllData: () -> Unit
 ) {
     val context = LocalContext.current
@@ -282,6 +283,41 @@ fun SettingsDialog(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Cadangkan / Pulihkan Data")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Bagian: Periode Buku & Arsip Data
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Business, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Periode Buku & Arsip Data", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Tutup buku, bekukan data historis menjadi arsip read-only, dan mulai periode baru dengan tampilan bersih.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                onDismiss()
+                                onOpenBookPeriods()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Kelola Arsip & Periode Buku")
                         }
                     }
                 }

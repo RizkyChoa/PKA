@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.model.AccountEntity
 import com.example.data.model.AuditLogEntity
+import com.example.data.model.BookPeriodEntity
 import com.example.data.model.CategoryEntity
 import com.example.data.model.PayableEntity
 import com.example.data.model.ProfitPartnerEntity
@@ -28,9 +29,10 @@ import com.example.data.model.WorkerLoanItemEntity
         WorkerInvoiceEntity::class,
         WorkerJobItemEntity::class,
         WorkerLoanItemEntity::class,
-        ProfitPartnerEntity::class
+        ProfitPartnerEntity::class,
+        BookPeriodEntity::class
     ],
-    version = 6,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -43,6 +45,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun auditLogDao(): AuditLogDao
     abstract fun workerInvoiceDao(): WorkerInvoiceDao
     abstract fun profitPartnerDao(): ProfitPartnerDao
+    abstract fun bookPeriodDao(): BookPeriodDao
 
     companion object {
         @Volatile

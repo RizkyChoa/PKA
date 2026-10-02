@@ -1,6 +1,7 @@
 package com.example
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -25,6 +26,8 @@ import com.example.ui.components.TopAppBarBorePile
 import com.example.ui.dialogs.AddProjectDialog
 import com.example.ui.dialogs.AddTransactionDialog
 import com.example.ui.dialogs.AddWorkerInvoiceDialog
+import com.example.ui.dialogs.ArchiveExplorerDialog
+import com.example.ui.dialogs.CloseBookPeriodDialog
 import com.example.ui.dialogs.ManageAccountsDialog
 import com.example.ui.dialogs.SettingsDialog
 import com.example.ui.dialogs.SyncAndBackupDialog
@@ -65,6 +68,8 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
     var showSyncDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var showManageAccountsDialog by remember { mutableStateOf(false) }
+    var showArchiveExplorerDialog by remember { mutableStateOf(false) }
+    var showCloseBookPeriodDialog by remember { mutableStateOf(false) }
     var transactionToVoid by remember { mutableStateOf<TransactionEntity?>(null) }
 
     // Back button handling: return to dashboard if on sub-screens
@@ -84,15 +89,27 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
     val dailySummaries by viewModel.dailySummaries.collectAsStateWithLifecycle()
     val receivables by viewModel.receivables.collectAsStateWithLifecycle()
     val payables by viewModel.payables.collectAsStateWithLifecycle()
+    val creditorLedgers by viewModel.creditorLedgers.collectAsStateWithLifecycle()
     val profitPartners by viewModel.profitPartners.collectAsStateWithLifecycle()
     val workerInvoicesWithDetails by viewModel.workerInvoicesWithDetails.collectAsStateWithLifecycle()
     val selectedDashboardProjectId by viewModel.selectedDashboardProjectId.collectAsStateWithLifecycle()
     val syncMessage by viewModel.syncStateMessage.collectAsStateWithLifecycle()
 
+    // Book Period & Archive states
+    val allBookPeriods by viewModel.allBookPeriods.collectAsStateWithLifecycle()
+    val activeBookPeriod by viewModel.activeBookPeriod.collectAsStateWithLifecycle()
+    val currentPeriod by viewModel.currentPeriod.collectAsStateWithLifecycle()
+    val isPeriodReadOnly by viewModel.isCurrentPeriodReadOnly.collectAsStateWithLifecycle()
+    val selectedPeriodId by viewModel.selectedPeriodId.collectAsStateWithLifecycle()
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBarBorePile(
+                currentPeriod = currentPeriod,
+                isReadOnlyArchive = isPeriodReadOnly,
+                onOpenPeriodSelector = { showArchiveExplorerDialog = true },
+                onReturnToActivePeriod = { viewModel.returnToActivePeriod() },
                 onOpenSync = { showSyncDialog = true },
                 onOpenSettings = { showSettingsDialog = true }
             )
@@ -116,8 +133,12 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     recentTransactions = allTransactions.take(5),
                     onSelectProject = { viewModel.selectDashboardProject(it) },
                     onOpenAddTransaction = {
-                        transactionToEdit = null
-                        showAddTransactionDialog = true
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only). Buka kunci arsip jika ingin menambah transaksi.", Toast.LENGTH_LONG).show()
+                        } else {
+                            transactionToEdit = null
+                            showAddTransactionDialog = true
+                        }
                     },
                     onNavigateToProjects = { currentScreen = AppScreen.PROJECTS },
                     modifier = screenModifier
@@ -129,17 +150,35 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     transactions = allTransactions,
                     allProjects = allProjects,
                     onOpenAddTransaction = {
-                        transactionToEdit = null
-                        showAddTransactionDialog = true
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only). Buka kunci arsip jika ingin menambah transaksi.", Toast.LENGTH_LONG).show()
+                        } else {
+                            transactionToEdit = null
+                            showAddTransactionDialog = true
+                        }
                     },
                     onEditTransaction = { trx ->
-                        transactionToEdit = trx
-                        showAddTransactionDialog = true
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_LONG).show()
+                        } else {
+                            transactionToEdit = trx
+                            showAddTransactionDialog = true
+                        }
                     },
                     onDeleteTransaction = { trxId ->
-                        viewModel.deleteTransaction(trxId)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_LONG).show()
+                        } else {
+                            viewModel.deleteTransaction(trxId)
+                        }
                     },
-                    onRequestVoidTransaction = { transactionToVoid = it },
+                    onRequestVoidTransaction = { trx ->
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_LONG).show()
+                        } else {
+                            transactionToVoid = trx
+                        }
+                    },
                     modifier = screenModifier
                 )
             }
@@ -150,8 +189,12 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     accounts = accounts,
                     dailySummaries = dailySummaries,
                     onOpenAddTransaction = {
-                        transactionToEdit = null
-                        showAddTransactionDialog = true
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            transactionToEdit = null
+                            showAddTransactionDialog = true
+                        }
                     },
                     onOpenManageAccounts = { showManageAccountsDialog = true },
                     modifier = screenModifier
@@ -161,25 +204,41 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
             AppScreen.PROJECTS -> {
                 ProjectsScreen(
                     projectSummaries = projectSummaries,
-                    onOpenAddProject = { showAddProjectDialog = true },
+                    onOpenAddProject = {
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            showAddProjectDialog = true
+                        }
+                    },
                     onCompleteProject = { viewModel.completeProject(it) },
                     onReopenProject = { viewModel.reopenProject(it) },
                     onEditProject = { id, name, client, location, startDate, targetDate, contractAmount, notes, jobItems, mobiUnits, mobiPricePerUnit ->
-                        viewModel.updateProject(
-                            id = id,
-                            name = name,
-                            client = client,
-                            location = location,
-                            startDate = startDate,
-                            targetDate = targetDate,
-                            contractAmount = contractAmount,
-                            notes = notes,
-                            jobItems = jobItems,
-                            mobiUnits = mobiUnits,
-                            mobiPricePerUnit = mobiPricePerUnit
-                        )
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.updateProject(
+                                id = id,
+                                name = name,
+                                client = client,
+                                location = location,
+                                startDate = startDate,
+                                targetDate = targetDate,
+                                contractAmount = contractAmount,
+                                notes = notes,
+                                jobItems = jobItems,
+                                mobiUnits = mobiUnits,
+                                mobiPricePerUnit = mobiPricePerUnit
+                            )
+                        }
                     },
-                    onDeleteProject = { viewModel.deleteProject(it) },
+                    onDeleteProject = {
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deleteProject(it)
+                        }
+                    },
                     modifier = screenModifier
                 )
             }
@@ -187,17 +246,41 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
             AppScreen.WORKER_INVOICES -> {
                 WorkerInvoicesScreen(
                     invoices = workerInvoicesWithDetails,
-                    onOpenAddInvoice = { showAddWorkerInvoiceDialog = true },
-                    onDeleteInvoice = { viewModel.deleteWorkerInvoice(it) },
+                    onOpenAddInvoice = {
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            showAddWorkerInvoiceDialog = true
+                        }
+                    },
+                    onDeleteInvoice = {
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deleteWorkerInvoice(it)
+                        }
+                    },
                     // Pekerjaan callbacks
                     onAddJobItem = { invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter ->
-                        viewModel.addWorkerJobItem(invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.addWorkerJobItem(invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                        }
                     },
                     onUpdateJobItem = { id, invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter ->
-                        viewModel.updateWorkerJobItem(id, invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.updateWorkerJobItem(id, invoiceId, jobName, pointCount, depthMeters, unitPricePerMeter)
+                        }
                     },
                     onDeleteJobItem = { jobItemId ->
-                        viewModel.deleteWorkerJobItem(jobItemId)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deleteWorkerJobItem(jobItemId)
+                        }
                     },
                     // Kasbon callbacks
                     onAddLoanItem = { invoiceId, date, description, trxType, amount, deductionDesc, deductionAmount ->
@@ -243,6 +326,7 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                     profitPartners = profitPartners,
                     allTransactions = allTransactions,
                     accounts = accounts,
+                    creditorLedgers = creditorLedgers,
                     onCreatePartner = { name, pct, phone, notes ->
                         viewModel.createProfitPartner(name, pct, phone, notes)
                     },
@@ -253,25 +337,60 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
                         viewModel.deleteProfitPartner(id)
                     },
                     onPayPayablesBatch = { pIds, accId, date, method, notes ->
-                        viewModel.payPayablesBatch(pIds, accId, date, method, notes)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.payPayablesBatch(pIds, accId, date, method, notes)
+                        }
                     },
                     onPayReceivablesBatch = { rIds, accId, date, method, notes ->
-                        viewModel.payReceivablesBatch(rIds, accId, date, method, notes)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.payReceivablesBatch(rIds, accId, date, method, notes)
+                        }
                     },
-                    onCreatePayable = { name, type, desc, amt, due, accId ->
-                        viewModel.createPayable(name, type, desc, amt, due, accId)
+                    onPayCreditor = { name, amt, accId, date, method, notes ->
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.payCreditor(name, amt, accId, date, method, notes)
+                        }
+                    },
+                    onCreatePayable = { name, type, desc, amt, due, accId, trxDate ->
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.createPayable(name, type, desc, amt, due, accId, trxDate)
+                        }
                     },
                     onDeletePayable = { id ->
-                        viewModel.deletePayable(id)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deletePayable(id)
+                        }
                     },
                     onCreateReceivable = { client, proj, inv, desc, amt, due, pId ->
-                        viewModel.createReceivable(client, proj, inv, desc, amt, due, pId)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.createReceivable(client, proj, inv, desc, amt, due, pId)
+                        }
                     },
                     onDeleteReceivable = { id ->
-                        viewModel.deleteReceivable(id)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.deleteReceivable(id)
+                        }
                     },
                     onReceiveProjectPayment = { pId, amt, accId, date, method, notes ->
-                        viewModel.receiveProjectPayment(pId, amt, accId, date, method, notes)
+                        if (isPeriodReadOnly) {
+                            Toast.makeText(context, "Periode ini telah diarsipkan (Read-Only).", Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.receiveProjectPayment(pId, amt, accId, date, method, notes)
+                        }
                     },
                     modifier = screenModifier
                 )
@@ -418,6 +537,7 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
             onDismiss = { showSettingsDialog = false },
             onOpenManageAccounts = { showManageAccountsDialog = true },
             onOpenBackupSync = { showSyncDialog = true },
+            onOpenBookPeriods = { showArchiveExplorerDialog = true },
             onResetAllData = { viewModel.resetAllData() }
         )
     }
@@ -435,6 +555,63 @@ fun BorePileFinanceApp(viewModel: MainViewModel) {
             },
             onDeleteAccount = { accId ->
                 viewModel.deleteAccount(accId)
+            }
+        )
+    }
+
+    // Modal Dialog: Arsip & Periode Buku Explorer
+    if (showArchiveExplorerDialog) {
+        ArchiveExplorerDialog(
+            allPeriods = allBookPeriods,
+            activePeriod = activeBookPeriod,
+            currentSelectedPeriodId = selectedPeriodId,
+            allTransactions = allTransactions,
+            globalSummary = globalSummary,
+            onDismiss = { showArchiveExplorerDialog = false },
+            onSelectPeriod = { pId ->
+                viewModel.selectPeriod(pId)
+                showArchiveExplorerDialog = false
+            },
+            onOpenCloseBookModal = {
+                showCloseBookPeriodDialog = true
+            },
+            onRenamePeriod = { pId, newName ->
+                viewModel.renameBookPeriod(pId, newName)
+                Toast.makeText(context, "Nama arsip berhasil diubah.", Toast.LENGTH_SHORT).show()
+            },
+            onUnlockPeriod = { pId ->
+                viewModel.unlockBookPeriod(pId)
+                Toast.makeText(context, "Kunci arsip dibuka untuk koreksi sementara.", Toast.LENGTH_SHORT).show()
+            },
+            onLockPeriod = { pId ->
+                viewModel.lockBookPeriod(pId)
+                Toast.makeText(context, "Periode telah dikunci kembali.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+
+    // Modal Dialog: Tutup Buku & Arsipkan
+    if (showCloseBookPeriodDialog && currentPeriod != null) {
+        CloseBookPeriodDialog(
+            currentPeriod = currentPeriod!!,
+            accounts = accounts,
+            periodTransactions = allTransactions,
+            payables = payables,
+            receivables = receivables,
+            projects = allProjects,
+            onDismiss = { showCloseBookPeriodDialog = false },
+            onConfirmCloseAndArchive = { archiveName, newPeriodName, newStartDate, newEndDate, notes ->
+                viewModel.closeAndArchiveBookPeriod(
+                    archiveName = archiveName,
+                    newPeriodName = newPeriodName,
+                    newStartDate = newStartDate,
+                    newEndDate = newEndDate,
+                    notes = notes,
+                    onComplete = { msg ->
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                )
+                showCloseBookPeriodDialog = false
             }
         )
     }

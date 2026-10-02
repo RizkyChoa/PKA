@@ -6,6 +6,7 @@ import android.print.PrintManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.example.data.model.CreditorLedger
 import com.example.data.model.DailyCashSummary
 import com.example.data.model.GlobalFinancialSummary
 import com.example.data.model.ProjectFinancialSummary
@@ -769,6 +770,285 @@ object PrintHelper {
 
             <div class="footer">
                 Dokumen ini dicetak otomatis dari Sistem Aplikasi Manajemen Keuangan Bore Pile.
+            </div>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    // 7. Print Detail Buku Besar Hutang / Pinjaman per Pemberi Pinjaman
+    fun generateCreditorLedgerHtml(ledger: CreditorLedger): String {
+        val today = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")).format(Date())
+        val statusText = if (ledger.isSettled) "LUNAS" else "BELUM LUNAS"
+        val statusColor = if (ledger.isSettled) "#16a34a" else "#dc2626"
+
+        val loansRowsHtml = if (ledger.loans.isEmpty()) {
+            "<tr><td colspan='5' style='text-align:center; color:#94a3b8;'>Belum ada data pinjaman</td></tr>"
+        } else {
+            ledger.loans.mapIndexed { index, loan ->
+                """
+                <tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${loan.date}</td>
+                    <td><span style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${loan.type}</span></td>
+                    <td>${loan.description}</td>
+                    <td style="text-align: right; font-weight: 600;">${formatRupiah(loan.amount)}</td>
+                </tr>
+                """.trimIndent()
+            }.joinToString("\n")
+        }
+
+        val repaymentsRowsHtml = if (ledger.repayments.isEmpty()) {
+            "<tr><td colspan='4' style='text-align:center; color:#94a3b8;'>Belum ada riwayat pembayaran / pelunasan</td></tr>"
+        } else {
+            ledger.repayments.mapIndexed { index, rep ->
+                """
+                <tr>
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td>${rep.date}</td>
+                    <td>${rep.description} (${rep.accountName} - ${rep.paymentMethod})</td>
+                    <td style="text-align: right; font-weight: 600; color: #dc2626;">${formatRupiah(rep.amount)}</td>
+                </tr>
+                """.trimIndent()
+            }.joinToString("\n")
+        }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Ledger Hutang - ${ledger.creditorName}</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; }
+                .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+                .header h1 { margin: 0; color: #0f172a; font-size: 20px; text-transform: uppercase; }
+                .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+                .summary-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 20px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+                th { background: #f1f5f9; color: #475569; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+                td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+                .section-title { font-size: 14px; font-weight: bold; margin-top: 18px; margin-bottom: 6px; color: #0f172a; }
+                .footer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 30px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <table style="width: 100%;">
+                    <tr>
+                        <td>
+                            <h1>Buku Besar Hutang / Pinjaman</h1>
+                            <div style="font-size: 14px; font-weight: bold; color: #2563eb; margin-top: 4px;">Pihak / Kreditur: ${ledger.creditorName}</div>
+                            <div style="font-size: 12px; color: #64748b;">Kelas: ${ledger.classes.joinToString(", ")}</div>
+                        </td>
+                        <td style="text-align: right; vertical-align: top;">
+                            <span class="badge" style="background: ${statusColor}20; color: $statusColor; border: 1px solid $statusColor;">$statusText</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Dicetak: $today</div>
+                            ${if (ledger.isSettled && ledger.lastSettlementDate != null) "<div style='font-size: 11px; font-weight: bold; color: #16a34a; margin-top: 2px;'>Pelunasan Terakhir: " + ledger.lastSettlementDate + "</div>" else ""}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="summary-card">
+                <table style="width: 100%; font-size: 13px;">
+                    <tr>
+                        <td>
+                            <div style="color: #64748b; font-size: 11px;">TOTAL PINJAMAN / UTANG:</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #0f172a;">${formatRupiah(ledger.totalLoanAmount)}</div>
+                        </td>
+                        <td style="text-align: center;">
+                            <div style="color: #64748b; font-size: 11px;">TOTAL PEMBAYARAN:</div>
+                            <div style="font-size: 16px; font-weight: 800; color: #16a34a;">${formatRupiah(ledger.totalRepaymentAmount)}</div>
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="color: #64748b; font-size: 11px;">SISA HUTANG:</div>
+                            <div style="font-size: 18px; font-weight: 800; color: ${if (ledger.isSettled) "#16a34a" else "#dc2626"};">${formatRupiah(ledger.remainingBalance)}</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="section-title">A. DETAIL PINJAMAN / UTANG DITERIMA</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">No</th>
+                        <th style="width: 100px;">Tanggal</th>
+                        <th style="width: 140px;">Kelas</th>
+                        <th>Keterangan</th>
+                        <th style="width: 130px; text-align: right;">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $loansRowsHtml
+                    <tr style="background: #f8fafc; font-weight: bold;">
+                        <td colspan="4" style="text-align: right;">Subtotal Pinjaman:</td>
+                        <td style="text-align: right; color: #0f172a;">${formatRupiah(ledger.totalLoanAmount)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">B. RIWAYAT PELUNASAN / PEMBAYARAN</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">No</th>
+                        <th style="width: 100px;">Tanggal</th>
+                        <th>Keterangan & Sumber Pembayaran</th>
+                        <th style="width: 130px; text-align: right;">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $repaymentsRowsHtml
+                    <tr style="background: #f8fafc; font-weight: bold;">
+                        <td colspan="3" style="text-align: right;">Total Pembayaran:</td>
+                        <td style="text-align: right; color: #16a34a;">${formatRupiah(ledger.totalRepaymentAmount)}</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title" style="margin-top: 24px;">C. PERHITUNGAN SISA HUTANG</div>
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 13px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span>Total Pinjaman:</span>
+                    <span style="font-weight: bold;">${formatRupiah(ledger.totalLoanAmount)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span>Total Pembayaran:</span>
+                    <span style="font-weight: bold; color: #16a34a;">- ${formatRupiah(ledger.totalRepaymentAmount)}</span>
+                </div>
+                <hr style="border: 0; border-top: 1px solid #cbd5e1; margin: 6px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: bold;">
+                    <span>Sisa Hutang:</span>
+                    <span style="color: ${if (ledger.isSettled) "#16a34a" else "#dc2626"};">${formatRupiah(ledger.remainingBalance)}</span>
+                </div>
+                <div style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                    Status: <strong style="color: $statusColor;">$statusText</strong>
+                    ${if (ledger.isSettled && ledger.lastSettlementDate != null) " &bull; Tanggal Pelunasan Terakhir: <strong>" + ledger.lastSettlementDate + "</strong>" else ""}
+                </div>
+            </div>
+
+            <div class="footer">
+                Dokumen ini dicetak otomatis dari Sistem Aplikasi Manajemen Keuangan Bore Pile.
+            </div>
+        </body>
+        </html>
+        """.trimIndent()
+    }
+
+    fun generatePeriodArchiveHtml(
+        period: com.example.data.model.BookPeriodEntity,
+        summary: com.example.data.model.GlobalFinancialSummary,
+        transactions: List<com.example.data.model.TransactionEntity>
+    ): String {
+        val today = SimpleDateFormat("dd MMMM yyyy, HH:mm", Locale("id", "ID")).format(Date())
+        val statusText = if (period.isArchived) "ARSIP (CLOSED)" else "PERIODE AKTIF"
+        val statusColor = if (period.isArchived) "#64748b" else "#16a34a"
+
+        val rowsHtml = if (transactions.isEmpty()) {
+            "<tr><td colspan='6' style='text-align:center; color:#94a3b8;'>Tidak ada transaksi dalam periode ini</td></tr>"
+        } else {
+            transactions.take(50).mapIndexed { idx, trx ->
+                val amtColor = if (trx.type == "MONEY_IN") "#16a34a" else "#dc2626"
+                val prefix = if (trx.type == "MONEY_IN") "+" else "-"
+                """
+                <tr>
+                    <td style="text-align: center;">${idx + 1}</td>
+                    <td>${trx.date}</td>
+                    <td><strong>${trx.trxNumber}</strong></td>
+                    <td>${trx.description}</td>
+                    <td><span style="font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${trx.classification}</span></td>
+                    <td style="text-align: right; font-weight: bold; color: $amtColor;">$prefix ${formatRupiah(trx.amount)}</td>
+                </tr>
+                """.trimIndent()
+            }.joinToString("\n")
+        }
+
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Arsip Pembukuan - ${period.name}</title>
+            <style>
+                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 25px; color: #1e293b; background: #fff; }
+                .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+                .header h1 { margin: 0; color: #0f172a; font-size: 20px; }
+                .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+                .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+                .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+                .card-title { font-size: 11px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+                .card-value { font-size: 16px; font-weight: 800; margin-top: 4px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+                th { background: #f1f5f9; color: #475569; padding: 8px; text-align: left; border-bottom: 2px solid #cbd5e1; }
+                td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+                .footer { font-size: 10px; color: #94a3b8; text-align: center; margin-top: 30px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <table style="width: 100%;">
+                    <tr>
+                        <td>
+                            <h1>LAPORAN ARSIP PEMBUKUAN PKA</h1>
+                            <div style="font-size: 15px; font-weight: bold; color: #2563eb; margin-top: 4px;">${period.name}</div>
+                            <div style="font-size: 12px; color: #64748b;">Rentang Periode: ${period.startDate} s/d ${period.endDate}</div>
+                        </td>
+                        <td style="text-align: right; vertical-align: top;">
+                            <span class="badge" style="background: ${statusColor}20; color: $statusColor; border: 1px solid $statusColor;">$statusText</span>
+                            <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Dicetak: $today</div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card-grid">
+                <div class="card">
+                    <div class="card-title">Saldo Awal Kas</div>
+                    <div class="card-value" style="color: #2563eb;">${formatRupiah(period.openingCashBalance)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Arus Kas Masuk (Cash In)</div>
+                    <div class="card-value" style="color: #16a34a;">${formatRupiah(summary.totalCashIn)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Arus Kas Keluar (Cash Out)</div>
+                    <div class="card-value" style="color: #dc2626;">${formatRupiah(summary.totalCashOut)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Saldo Akhir Kas</div>
+                    <div class="card-value" style="color: #0f172a;">${formatRupiah(if (period.closingCashBalance > 0) period.closingCashBalance else summary.totalCash)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Total Pendapatan (Revenue)</div>
+                    <div class="card-value" style="color: #16a34a;">${formatRupiah(summary.totalRevenue)}</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Laba Bersih (Net Profit)</div>
+                    <div class="card-value" style="color: ${if (summary.netProfit >= 0) "#16a34a" else "#dc2626"};">${formatRupiah(summary.netProfit)}</div>
+                </div>
+            </div>
+
+            <div style="font-weight: bold; font-size: 14px; margin-top: 16px; margin-bottom: 6px;">HISTORI TRANSAKSI PERIODE (${transactions.size} Total)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 35px; text-align: center;">No</th>
+                        <th style="width: 90px;">Tanggal</th>
+                        <th style="width: 130px;">No. Trx</th>
+                        <th>Keterangan</th>
+                        <th style="width: 120px;">Klasifikasi</th>
+                        <th style="width: 130px; text-align: right;">Nominal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    $rowsHtml
+                </tbody>
+            </table>
+
+            <div class="footer">
+                Arsip Pembukuan PKA Bore Pile &bull; Dicetak Resmi untuk Arsip Perusahaan &bull; Single Source of Truth
             </div>
         </body>
         </html>

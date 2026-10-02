@@ -373,7 +373,7 @@ class FinanceRepository(private val db: AppDatabase) {
         description: String,
         totalAmount: Double,
         dueDate: String,
-        destinationAccountId: Long,
+        destinationAccountId: Long? = null,
         transactionDate: String = dueDate,
         paymentMethod: String = "TRANSFER"
     ): Long = withContext(Dispatchers.IO) {
@@ -383,27 +383,79 @@ class FinanceRepository(private val db: AppDatabase) {
             description = description.trim(),
             totalAmount = totalAmount,
             paidAmount = 0.0,
-            status = "UNPAID",
-            dueDate = dueDate
+            dueDate = dueDate,
+            date = transactionDate,
+            status = "UNPAID"
         )
         val payableId = db.payableDao().insertPayable(payable)
-        val trxDesc = if (description.isNotBlank()) "Penerimaan Pinjaman/Utang $creditorName - $description" else "Penerimaan Pinjaman/Utang dari $creditorName"
-        createTransaction(
-            date = transactionDate,
-            type = "MONEY_IN",
-            amount = totalAmount,
-            description = trxDesc,
-            paymentMethod = paymentMethod,
-            sourceAccountId = destinationAccountId,
-            destinationAccountId = null,
-            categoryId = 19L, // Penerimaan Pinjaman Modal / Bank
-            classification = "DEBT",
-            payableId = payableId
-        )
+
+        // 13A, 13B, 13C: HANYA PINJAMAN DANA YANG MENGHASILKAN CASH IN
+        // Utang Usaha & Supplier tidak menghasilkan Cash In saat dicatat
+        if (type == "LOAN" || type == "PINJAMAN_DANA") {
+            val accId = destinationAccountId ?: db.accountDao().getAllAccountsSnapshot().firstOrNull()?.id ?: 1L
+            val trxDesc = if (description.isNotBlank()) "Penerimaan Pinjaman Dana dari $creditorName - $description" else "Penerimaan Pinjaman Dana dari $creditorName"
+            createTransaction(
+                date = transactionDate,
+                type = "MONEY_IN",
+                amount = totalAmount,
+                description = trxDesc,
+                paymentMethod = paymentMethod,
+                sourceAccountId = accId,
+                destinationAccountId = null,
+                categoryId = 19L, // Penerimaan Pinjaman Modal / Bank
+                classification = "DEBT",
+                payableId = payableId
+            )
+        }
         payableId
     }
 
+    suspend fun payCreditorRepayment(
+        creditorName: String,
+        amount: Double,
+        sourceAccountId: Long,
+        date: String,
+        paymentMethod: String = "TRANSFER",
+        notes: String = ""
+    ) = withContext(Dispatchers.IO) {
+        val allPayables = db.payableDao().getAllPayablesSnapshot()
+        val creditorPayables = allPayables.filter {
+            it.creditorName.trim().equals(creditorName.trim(), ignoreCase = true) && it.remainingAmount > 0
+        }.sortedWith(compareBy({ it.date }, { it.id })) // FIFO allocation
+
+        var remainingToPay = amount
+        for (pay in creditorPayables) {
+            if (remainingToPay <= 0) break
+            val paymentForThis = minOf(remainingToPay, pay.remainingAmount)
+            val desc = if (notes.isNotBlank()) "$notes ($creditorName)" else "Pembayaran Utang/Pinjaman ke $creditorName"
+            createTransaction(
+                date = date,
+                type = "MONEY_OUT",
+                amount = paymentForThis,
+                description = desc,
+                paymentMethod = paymentMethod,
+                sourceAccountId = sourceAccountId,
+                categoryId = 20L, // Pembayaran Pokok Utang / Pinjaman
+                classification = "DEBT",
+                payableId = pay.id
+            )
+            remainingToPay -= paymentForThis
+        }
+    }
+
     suspend fun deletePayable(id: Long) = withContext(Dispatchers.IO) {
+        val pay = db.payableDao().getPayableById(id)
+        if (pay != null) {
+            val relatedTrxs = db.transactionDao().getAllTransactionsSnapshot().filter { it.payableId == id }
+            for (trx in relatedTrxs) {
+                if (trx.type == "MONEY_IN") {
+                    db.accountDao().adjustBalance(trx.sourceAccountId, -trx.amount)
+                } else if (trx.type == "MONEY_OUT") {
+                    db.accountDao().adjustBalance(trx.sourceAccountId, trx.amount)
+                }
+                db.transactionDao().deleteTransactionById(trx.id)
+            }
+        }
         db.payableDao().deletePayableById(id)
     }
 
@@ -457,6 +509,87 @@ class FinanceRepository(private val db: AppDatabase) {
 
     suspend fun updateWorkerInvoice(invoice: com.example.data.model.WorkerInvoiceEntity) = withContext(Dispatchers.IO) {
         db.workerInvoiceDao().updateInvoice(invoice)
+    }
+
+    // Book Periods (Periode Buku & Arsip)
+    val allBookPeriods: Flow<List<com.example.data.model.BookPeriodEntity>> = db.bookPeriodDao().getAllPeriods()
+    val activeBookPeriod: Flow<com.example.data.model.BookPeriodEntity?> = db.bookPeriodDao().getActivePeriod()
+
+    suspend fun getPeriodById(id: Long): com.example.data.model.BookPeriodEntity? = withContext(Dispatchers.IO) {
+        db.bookPeriodDao().getPeriodById(id)
+    }
+
+    suspend fun createBookPeriod(period: com.example.data.model.BookPeriodEntity): Long = withContext(Dispatchers.IO) {
+        db.bookPeriodDao().insertPeriod(period)
+    }
+
+    suspend fun updateBookPeriod(period: com.example.data.model.BookPeriodEntity) = withContext(Dispatchers.IO) {
+        db.bookPeriodDao().updatePeriod(period)
+    }
+
+    suspend fun updatePeriodName(id: Long, newName: String) = withContext(Dispatchers.IO) {
+        db.bookPeriodDao().updatePeriodName(id, newName.trim())
+    }
+
+    suspend fun setPeriodStatus(id: Long, status: String) = withContext(Dispatchers.IO) {
+        db.bookPeriodDao().updatePeriodStatus(id, status)
+    }
+
+    suspend fun closeAndArchiveBookPeriod(
+        currentPeriodId: Long,
+        archiveName: String,
+        newPeriodName: String,
+        newStartDate: String,
+        newEndDate: String,
+        notes: String = ""
+    ): Long = withContext(Dispatchers.IO) {
+        val currentPeriod = db.bookPeriodDao().getPeriodById(currentPeriodId)
+            ?: db.bookPeriodDao().getActivePeriodSnapshot()
+
+        val totalCash = db.accountDao().getAllAccountsSnapshot().sumOf { it.currentBalance }
+        val totalPayable = db.payableDao().getAllPayablesSnapshot().sumOf { it.remainingAmount }
+        val totalReceivable = db.receivableDao().getAllReceivablesSnapshot().sumOf { it.remainingAmount }
+        val activeProjectsCount = db.projectDao().getAllProjectsSnapshot().count { it.status == "ACTIVE" || it.status == "PLANNING" }
+
+        if (currentPeriod != null) {
+            val updatedOld = currentPeriod.copy(
+                name = archiveName.ifBlank { currentPeriod.name },
+                status = "ARCHIVED",
+                closedAt = System.currentTimeMillis(),
+                closingCashBalance = totalCash,
+                closingPayableBalance = totalPayable,
+                closingReceivableBalance = totalReceivable,
+                activeProjectCount = activeProjectsCount
+            )
+            db.bookPeriodDao().updatePeriod(updatedOld)
+        }
+
+        val year = newStartDate.take(4).toIntOrNull() ?: java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+        val periodCode = "PERIOD-$year-${System.currentTimeMillis() % 10000}"
+        val newPeriod = com.example.data.model.BookPeriodEntity(
+            periodCode = periodCode,
+            name = newPeriodName.ifBlank { "Data $year" },
+            year = year,
+            startDate = newStartDate,
+            endDate = newEndDate,
+            status = "ACTIVE",
+            notes = notes,
+            openingCashBalance = totalCash,
+            openingPayableBalance = totalPayable,
+            openingReceivableBalance = totalReceivable,
+            activeProjectCount = activeProjectsCount
+        )
+        val newId = db.bookPeriodDao().insertPeriod(newPeriod)
+
+        db.auditLogDao().insertLog(
+            AuditLogEntity(
+                trxNumber = periodCode,
+                action = "CLOSE_BOOK",
+                details = "Tutup buku periode lama: '${currentPeriod?.name}' diarsipkan. Membuka periode baru: '$newPeriodName' ($newStartDate s/d $newEndDate). Saldo awal kas: Rp${totalCash.toLong()}"
+            )
+        )
+
+        newId
     }
 
     suspend fun exportAllData(): com.example.util.BackupData = withContext(Dispatchers.IO) {

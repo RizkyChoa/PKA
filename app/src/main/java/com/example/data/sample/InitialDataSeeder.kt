@@ -73,6 +73,23 @@ object InitialDataSeeder {
             database.profitPartnerDao().insertAll(defaultPartners)
         }
 
+        // 4. Seed Default Active Book Period jika belum ada
+        val existingPeriods = database.bookPeriodDao().getAllPeriodsSnapshot()
+        if (existingPeriods.isEmpty()) {
+            val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+            val defaultPeriod = com.example.data.model.BookPeriodEntity(
+                id = 1L,
+                periodCode = "PERIOD-$currentYear-01",
+                name = "Data $currentYear Pembukuan Aktif",
+                year = currentYear,
+                startDate = "$currentYear-01-01",
+                endDate = "$currentYear-12-31",
+                status = "ACTIVE",
+                notes = "Periode pembukuan aktif berjalan"
+            )
+            database.bookPeriodDao().insertPeriod(defaultPeriod)
+        }
+
         // 0 Sample dummy projects, transactions, invoices, utang atau piutang.
         // Database 100% bersih siap diuji langsung!
     }

@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.AccountEntity
+import com.example.data.model.CreditorLedger
 import com.example.data.model.GlobalFinancialSummary
 import com.example.data.model.PayableEntity
 import com.example.data.model.ProfitPartnerEntity
@@ -71,12 +72,14 @@ fun ReportsScreen(
     profitPartners: List<ProfitPartnerEntity>,
     allTransactions: List<TransactionEntity>,
     accounts: List<AccountEntity>,
+    creditorLedgers: List<CreditorLedger> = emptyList(),
     onCreatePartner: (name: String, percentage: Double, phone: String, notes: String) -> Unit,
     onUpdatePartner: (id: Long, name: String, percentage: Double, phone: String, notes: String) -> Unit,
     onDeletePartner: (id: Long) -> Unit,
     onPayPayablesBatch: (payableIds: List<Long>, sourceAccountId: Long, date: String, method: String, notes: String) -> Unit,
     onPayReceivablesBatch: (receivableIds: List<Long>, destinationAccountId: Long, date: String, method: String, notes: String) -> Unit,
-    onCreatePayable: (creditorName: String, type: String, description: String, totalAmount: Double, dueDate: String, destinationAccountId: Long) -> Unit,
+    onPayCreditor: (creditorName: String, amount: Double, sourceAccountId: Long, date: String, method: String, notes: String) -> Unit = { _, _, _, _, _, _ -> },
+    onCreatePayable: (creditorName: String, type: String, description: String, totalAmount: Double, dueDate: String, destinationAccountId: Long?, transactionDate: String) -> Unit,
     onDeletePayable: (id: Long) -> Unit,
     onCreateReceivable: (clientName: String, projectName: String, invoiceNumber: String, description: String, totalAmount: Double, dueDate: String, projectId: Long?) -> Unit,
     onDeleteReceivable: (id: Long) -> Unit,
@@ -135,9 +138,11 @@ fun ReportsScreen(
                 projectSummaries = projectSummaries,
                 receivables = receivables,
                 payables = payables,
+                creditorLedgers = creditorLedgers,
                 accounts = accounts,
                 onPayPayablesBatch = onPayPayablesBatch,
                 onPayReceivablesBatch = onPayReceivablesBatch,
+                onPayCreditor = onPayCreditor,
                 onCreatePayable = onCreatePayable,
                 onDeletePayable = onDeletePayable,
                 onCreateReceivable = onCreateReceivable,

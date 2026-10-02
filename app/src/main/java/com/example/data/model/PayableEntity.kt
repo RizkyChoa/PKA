@@ -7,11 +7,12 @@ import androidx.room.PrimaryKey
 data class PayableEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val creditorName: String,
-    val type: String, // "SUPPLIER", "LOAN", "OTHER"
+    val type: String, // "PINJAMAN_DANA", "SUPPLIER", "LOAN", "OTHER"
     val description: String,
     val totalAmount: Double,
     val paidAmount: Double = 0.0,
     val dueDate: String,
+    val date: String = dueDate,
     val status: String = "UNPAID", // "UNPAID", "PARTIAL", "PAID"
     val createdAt: Long = System.currentTimeMillis()
 ) {

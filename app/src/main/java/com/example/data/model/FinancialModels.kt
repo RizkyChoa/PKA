@@ -105,3 +105,38 @@ data class ProfitDistributionSummary(
     val totalDistributableProfit: Double, // Total laba yang dibagikan
     val partnerShares: List<PartnerProfitShare>
 )
+
+data class LoanItemDetail(
+    val payable: PayableEntity,
+    val id: Long,
+    val date: String,
+    val type: String, // "PINJAMAN_DANA", "SUPPLIER", "LOAN", "OTHER"
+    val description: String,
+    val amount: Double,
+    val paidAmount: Double,
+    val remainingAmount: Double,
+    val dueDate: String,
+    val status: String
+)
+
+data class RepaymentItemDetail(
+    val transactionId: Long,
+    val date: String,
+    val amount: Double,
+    val description: String,
+    val paymentMethod: String,
+    val accountName: String,
+    val payableId: Long?
+)
+
+data class CreditorLedger(
+    val creditorName: String,
+    val loans: List<LoanItemDetail>,
+    val repayments: List<RepaymentItemDetail>,
+    val totalLoanAmount: Double,
+    val totalRepaymentAmount: Double,
+    val remainingBalance: Double,
+    val isSettled: Boolean,
+    val lastSettlementDate: String?,
+    val classes: Set<String>
+)

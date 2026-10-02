@@ -9,13 +9,16 @@ import com.example.data.db.AppDatabase
 import com.example.data.model.AccountEntity
 import com.example.data.model.BorePileJobItem
 import com.example.data.model.CategoryEntity
+import com.example.data.model.CreditorLedger
 import com.example.data.model.DailyCashSummary
 import com.example.data.model.GlobalFinancialSummary
+import com.example.data.model.LoanItemDetail
 import com.example.data.model.PayableEntity
 import com.example.data.model.ProjectCostBreakdown
 import com.example.data.model.ProjectEntity
 import com.example.data.model.ProjectFinancialSummary
 import com.example.data.model.ReceivableEntity
+import com.example.data.model.RepaymentItemDetail
 import com.example.data.model.TransactionEntity
 import com.example.data.repository.FinanceRepository
 import com.example.data.sample.InitialDataSeeder
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -44,11 +48,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeProjects = repository.activeProjects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allTransactions = repository.allTransactions
+    // Book Periods (Periode Buku & Arsip)
+    val allBookPeriods = repository.allBookPeriods
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val validTransactions = repository.validTransactions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val activeBookPeriod = repository.activeBookPeriod
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    private val _selectedPeriodId = MutableStateFlow<Long?>(null)
+    val selectedPeriodId: StateFlow<Long?> = _selectedPeriodId.asStateFlow()
+
+    // Currently selected Book Period (either user-selected archive or the active period)
+    val currentPeriod: StateFlow<com.example.data.model.BookPeriodEntity?> = combine(
+        allBookPeriods,
+        activeBookPeriod,
+        _selectedPeriodId
+    ) { all, active, selId ->
+        if (selId != null) {
+            all.find { it.id == selId } ?: active
+        } else {
+            active ?: all.firstOrNull { it.status == "ACTIVE" } ?: all.firstOrNull()
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val isCurrentPeriodReadOnly: StateFlow<Boolean> = currentPeriod.map { period ->
+        period?.isArchived == true
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val rawAllTransactions = repository.allTransactions
+    private val rawValidTransactions = repository.validTransactions
+
+    // Filter transactions to the current selected period (Active or Archive)
+    val allTransactions: StateFlow<List<TransactionEntity>> = combine(
+        rawAllTransactions,
+        currentPeriod
+    ) { trxs, period ->
+        if (period != null) {
+            trxs.filter { it.date >= period.startDate && it.date <= period.endDate }
+        } else {
+            trxs
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val validTransactions: StateFlow<List<TransactionEntity>> = combine(
+        rawValidTransactions,
+        currentPeriod
+    ) { trxs, period ->
+        if (period != null) {
+            trxs.filter { it.date >= period.startDate && it.date <= period.endDate }
+        } else {
+            trxs
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val categories = repository.allCategories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -62,13 +113,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val profitPartners = repository.allProfitPartners
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Worker Invoices With Details
+    // Worker Invoices With Details filtered by period
     val workerInvoicesWithDetails: StateFlow<List<com.example.data.model.WorkerInvoiceWithDetails>> = combine(
         repository.allWorkerInvoices,
         repository.allJobItems,
-        repository.allLoanItems
-    ) { invoices, allJobs, allLoans ->
-        invoices.map { inv ->
+        repository.allLoanItems,
+        currentPeriod
+    ) { invoices, allJobs, allLoans, period ->
+        val filtered = if (period != null) {
+            invoices.filter { it.date >= period.startDate && it.date <= period.endDate }
+        } else {
+            invoices
+        }
+        filtered.map { inv ->
             val jobs = allJobs.filter { it.invoiceId == inv.id }
             val loans = allLoans.filter { it.invoiceId == inv.id }
             com.example.data.model.WorkerInvoiceWithDetails(
@@ -99,9 +156,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         validTransactions,
         receivables,
         payables,
-        allProjects
-    ) { accList, trxList, recList, payList, projList ->
-        val totalCash = accList.sumOf { it.currentBalance }
+        combine(allProjects, currentPeriod) { p, c -> Pair(p, c) }
+    ) { accList, trxList, recList, payList, (projList, period) ->
+        val totalCash = if (period?.isArchived == true && period.closingCashBalance > 0) {
+            period.closingCashBalance
+        } else {
+            accList.sumOf { it.currentBalance }
+        }
 
         var cashIn = 0.0
         var cashOut = 0.0
@@ -172,9 +233,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val totalExp = totalPrjCost + totalOpsCost
         val netProfit = totalRev - totalExp
         val netCash = cashIn - cashOut
-        val recOutstanding = recList.sumOf { it.remainingAmount }
-        val payOutstanding = payList.sumOf { it.remainingAmount }
-        val activeCount = projList.count { it.status == "ACTIVE" || it.status == "PLANNING" }
+        val recOutstanding = if (period?.isArchived == true && period.closingReceivableBalance > 0) {
+            period.closingReceivableBalance
+        } else {
+            recList.sumOf { it.remainingAmount }
+        }
+        val payOutstanding = if (period?.isArchived == true && period.closingPayableBalance > 0) {
+            period.closingPayableBalance
+        } else {
+            payList.sumOf { it.remainingAmount }
+        }
+        val activeCount = if (period?.isArchived == true && period.activeProjectCount > 0) {
+            period.activeProjectCount
+        } else {
+            projList.count { it.status == "ACTIVE" || it.status == "PLANNING" }
+        }
         val compCount = projList.count { it.status == "COMPLETED" }
 
         GlobalFinancialSummary(
@@ -294,6 +367,95 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 transactions = trxs
             )
         }.sortedByDescending { it.date }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Detail Ledger Utang & Pinjaman per Pemberi Pinjaman / Supplier
+    val creditorLedgers: StateFlow<List<CreditorLedger>> = combine(
+        payables,
+        validTransactions
+    ) { payList, trxList ->
+        val groupedPayables = payList.groupBy { it.creditorName.trim() }
+
+        groupedPayables.map { (creditorName, payablesForCreditor) ->
+            val payableIds = payablesForCreditor.map { it.id }.toSet()
+
+            // 1. Detail seluruh pinjaman / utang dari pihak ini
+            val loanDetails = payablesForCreditor.map { pay ->
+                LoanItemDetail(
+                    payable = pay,
+                    id = pay.id,
+                    date = pay.date.ifBlank { pay.dueDate },
+                    type = if (pay.type == "LOAN" || pay.type == "PINJAMAN_DANA") "Pinjaman Dana" else "Utang Usaha & Supplier",
+                    description = pay.description.ifBlank { "Pinjaman/Utang" },
+                    amount = pay.totalAmount,
+                    paidAmount = pay.paidAmount,
+                    remainingAmount = pay.remainingAmount,
+                    dueDate = pay.dueDate,
+                    status = pay.status
+                )
+            }.sortedWith(compareBy({ it.date }, { it.id }))
+
+            // 2. Detail riwayat seluruh pelunasan / cicilan ke pihak ini
+            val repaymentsFromTrx = trxList.filter { trx ->
+                trx.type == "MONEY_OUT" && (
+                    (trx.payableId != null && payableIds.contains(trx.payableId)) ||
+                    (trx.payableId == null && trx.classification == "DEBT" && trx.description.contains(creditorName, ignoreCase = true))
+                )
+            }.map { trx ->
+                RepaymentItemDetail(
+                    transactionId = trx.id,
+                    date = trx.date,
+                    amount = trx.amount,
+                    description = trx.description,
+                    paymentMethod = trx.paymentMethod,
+                    accountName = trx.sourceAccountName,
+                    payableId = trx.payableId
+                )
+            }.sortedWith(compareBy({ it.date }, { it.transactionId }))
+
+            val totalLoanAmount = loanDetails.sumOf { it.amount }
+            val totalRepaymentTrx = repaymentsFromTrx.sumOf { it.amount }
+            val totalPayablesPaid = payablesForCreditor.sumOf { it.paidAmount }
+            val totalRepaymentAmount = maxOf(totalRepaymentTrx, totalPayablesPaid)
+            val remainingBalance = (totalLoanAmount - totalRepaymentAmount).coerceAtLeast(0.0)
+            val isSettled = remainingBalance <= 0.0 && totalLoanAmount > 0
+
+            // 3. Tanggal Pelunasan Terakhir:
+            // Diambil dari tanggal transaksi pembayaran yang benar-benar membuat outstanding menjadi Rp0
+            var lastSettlementDate: String? = null
+            if (isSettled) {
+                var runningRepaid = 0.0
+                for (rep in repaymentsFromTrx) {
+                    runningRepaid += rep.amount
+                    if (runningRepaid >= totalLoanAmount) {
+                        lastSettlementDate = rep.date
+                        break
+                    }
+                }
+                if (lastSettlementDate == null) {
+                    lastSettlementDate = repaymentsFromTrx.lastOrNull()?.date ?: payablesForCreditor.maxOfOrNull { it.dueDate }
+                }
+            }
+
+            val classes = payablesForCreditor.map {
+                if (it.type == "LOAN" || it.type == "PINJAMAN_DANA") "Pinjaman Dana" else "Utang Usaha & Supplier"
+            }.toSet()
+
+            CreditorLedger(
+                creditorName = creditorName,
+                loans = loanDetails,
+                repayments = repaymentsFromTrx,
+                totalLoanAmount = totalLoanAmount,
+                totalRepaymentAmount = totalRepaymentAmount,
+                remainingBalance = remainingBalance,
+                isSettled = isSettled,
+                lastSettlementDate = lastSettlementDate,
+                classes = classes
+            )
+        }.sortedWith(
+            compareBy<CreditorLedger> { it.isSettled }
+                .thenBy { it.creditorName.lowercase() }
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun createProject(
@@ -673,6 +835,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun payCreditor(
+        creditorName: String,
+        amount: Double,
+        sourceAccountId: Long,
+        date: String,
+        method: String = "TRANSFER",
+        notes: String = ""
+    ) {
+        viewModelScope.launch {
+            repository.payCreditorRepayment(creditorName, amount, sourceAccountId, date, method, notes)
+        }
+    }
+
     fun payPayablesBatch(payableIds: List<Long>, sourceAccountId: Long, date: String, method: String = "TRANSFER", notes: String = "") {
         viewModelScope.launch {
             repository.payPayablesBatch(payableIds, sourceAccountId, date, method, notes)
@@ -785,6 +960,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _syncStateMessage.value = "Gagal mengimpor file: ${e.message}"
             }
+        }
+    }
+
+    // Book Period & Archive Actions
+    fun selectPeriod(periodId: Long?) {
+        _selectedPeriodId.value = periodId
+    }
+
+    fun returnToActivePeriod() {
+        _selectedPeriodId.value = null
+    }
+
+    fun closeAndArchiveBookPeriod(
+        archiveName: String,
+        newPeriodName: String,
+        newStartDate: String,
+        newEndDate: String,
+        notes: String = "",
+        onComplete: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            val currId = currentPeriod.value?.id ?: 1L
+            val newId = repository.closeAndArchiveBookPeriod(
+                currentPeriodId = currId,
+                archiveName = archiveName,
+                newPeriodName = newPeriodName,
+                newStartDate = newStartDate,
+                newEndDate = newEndDate,
+                notes = notes
+            )
+            _selectedPeriodId.value = null
+            onComplete("Tutup buku berhasil! Periode '$archiveName' telah diarsipkan dan periode baru '$newPeriodName' aktif.")
+        }
+    }
+
+    fun renameBookPeriod(id: Long, newName: String) {
+        viewModelScope.launch {
+            repository.updatePeriodName(id, newName)
+        }
+    }
+
+    fun unlockBookPeriod(id: Long) {
+        viewModelScope.launch {
+            repository.setPeriodStatus(id, "ACTIVE")
+        }
+    }
+
+    fun lockBookPeriod(id: Long) {
+        viewModelScope.launch {
+            repository.setPeriodStatus(id, "ARCHIVED")
         }
     }
 }
